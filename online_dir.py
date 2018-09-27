@@ -7,7 +7,7 @@ from StringIO import StringIO
 
 baseUrl = 'http://archive.routeviews.org/route-views6/bgpdata/'
 
-class OnlineDir(Base):
+class OnlineDir:
     
     def __init__(self, url):
         if url:
