@@ -18,7 +18,7 @@ class OnlineDir:
         # Use Curl to fetch resource
         buffer = StringIO()
         c = pycurl.Curl()
-        c.setopt(c.URL, url)
+        c.setopt(c.URL, self.url)
         c.setopt(c.WRITEDATA, buffer)
         c.perform()
     
@@ -31,7 +31,7 @@ class OnlineDir:
     
         self.body = buffer.getvalue()
         buffer.close()
-        return body
+        return self.body
     
 def main():
     dir = OnlineDir(baseUrl)
