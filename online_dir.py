@@ -10,11 +10,7 @@ baseUrl = 'http://archive.routeviews.org/route-views6/bgpdata/'
 class OnlineDir:
     
     def __init__(self, url):
-        if url:
-            self.url = url
-        else:
-            # Use default
-            self.url = baseUrl
+        self.url = url
             
     def fetch(self):
         """ Fetch the HTML describing the online directory.
@@ -38,7 +34,7 @@ class OnlineDir:
         return body
     
 def main():
-    dir = OnlineDir()
+    dir = OnlineDir(baseUrl)
     dir.fetch()
     print(dir.body)
 
