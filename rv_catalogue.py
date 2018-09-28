@@ -19,8 +19,10 @@ dirPattern = r'(20[01][\d])\.([01][\d])/'
 # Grouped into (type, year, month, day, hour, minute)
 filePattern = r'(rib|updates)\.(20[01][\d])([01]\d)([0-3]\d)\.([0-2]\d)([0134][05])\.bz2'
 
-class RVData:
-    """ Represents the routeview data on the archive website.
+class RVCatalogue:
+    """ Provides functions which will interpret the file and folder names in
+    the routeview archive. Can extract a list of all files created at or after
+    a provided UTC time.
     """
     
     # Given the name of a subdirectory, work out what month and year
@@ -79,7 +81,7 @@ def main():
     tm = datetime.datetime(2018, 9, 1, 0, 0)
     utctz = pytz.timezone("UTC")
     utctz.localize(tm)
-    for file in RVData().listDataAfter(baseUrl, tm):
+    for file in RVCatalogue().listDataAfter(baseUrl, tm):
         print(file)
     
 main()
