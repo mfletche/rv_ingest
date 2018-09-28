@@ -24,6 +24,7 @@ class OnlineDir:
     
     def __init__(self, url):
         self.url = url
+        self.soup = None
         
     def update(self):
         """Re-fetch and re-parse the HTML for this directory.
@@ -66,6 +67,8 @@ class OnlineDir:
         """ Returns a list of links on the online directory page, with
         their types.
         """
+        if self.soup == None:
+            self.update()
         list = []
         links = self.soup.find_all('a')
         for link in links:

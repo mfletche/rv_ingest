@@ -9,6 +9,7 @@ Author: Marianne Fletcher
 import datetime
 import pytz
 import re
+from online_dir import OnlineDir
 
 baseUrl = 'http://archive.routeviews.org/route-views6/bgpdata/'
 
@@ -27,7 +28,13 @@ class RVData:
     def getMonth(self, dirname):
         matchObj = re.match(dirPattern, dirname, re.M|re.I)
         if matchObj:
-            return (int(matchObj.group(1)), int(matchObj.group(2)))
+            year = int(matchObj.group(1))
+            month = int(matchObj.group(2))
+            
+            tm = datetime.datetime(year, month, day=1)
+            utctz = pytz.timezone("UTC")
+            utctz.localize(tm)
+            return tm
     
     def getUTCTime(self, filename):
         """ Get the UTC time that a file was recorded by examining the filename.
@@ -41,11 +48,38 @@ class RVData:
             minute = int(matchObj.group(6))
             
             tm = datetime.datetime(year, month, day, hour, minute)
-            tm.tzinfo = pytz.timezone("UTC")
+            utctz = pytz.timezone("UTC")
+            utctz.localize(tm)
             
             return tm
 
+    def listDataAfter(self, dir, tm):
+        """ Finds files which the filenames indicate were created at or after
+        tm. Recurses through subdirectories.
+        
+        tm - Must be UTC
+        """
+        list = []
+        dir = OnlineDir(dir)
+        subdirs = dir.listSubdirs()
+        for subdir in subdirs:
+            # If this directory contains RIB and UPDATES folders getMonth will
+            # return None, otherwise the name of the folder will give us the
+            # month and year.
+            if (self.getMonth(subdir) == None) or (self.getMonth(subdir) >= tm):
+                list.extend(self.listDataAfter(dir.getUrl(subdir), tm))
+        files = dir.listFiles()
+        for file in files:
+            if self.getUTCTime(file) >= tm:
+                # Add the complete URL so it can be retrieved
+                list.append(dir.getUrl(file))
+        return list
+        
 def main():
-    print RVData().getUTCTime('rib.20180901.0000.bz2')
+    tm = datetime.datetime(2018, 9, 1, 0, 0)
+    utctz = pytz.timezone("UTC")
+    utctz.localize(tm)
+    for file in RVData().listDataAfter(baseUrl, tm):
+        print(file)
     
 main()
