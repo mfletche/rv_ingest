@@ -1,5 +1,11 @@
-"""Represents an online directory on the routeview website. Can fetch the HTML
+#!/usr/bin/env python
+"""
+Represents an online directory on the routeview website. Can fetch the HTML
 representing the directory and list files and folders.
+
+Dependencies: pycurl, beautifulsoup4
+
+Author: Marianne Fletcher
 """
 
 import pycurl
@@ -96,8 +102,9 @@ class OnlineDir:
     
     def getUrl(self, link):
         """ Constructs a link for retrieving the directory listing or a file.
+        Only works for relative internal links.
         """
-        # A leading forward slash denotes a non-relative link (not supported)
+        # A leading forward slash denotes a non-relative link (not implemented)
         if link[0]=='/':
             return
         return self.url + link
