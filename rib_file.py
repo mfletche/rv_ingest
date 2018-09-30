@@ -22,6 +22,7 @@ from datetime import *
 from mrtparse import *
 
 peer = None
+snapshot = 0
 
 def parse_args():
     p = argparse.ArgumentParser(
@@ -90,7 +91,7 @@ class BgpDump:
         self.new_state = 0
         
     def write_rib_to_csv_line(self, prefix, ts):
-        snapshot = ' '
+        global snapshot
         self.output.write('%s, %s, %s, %s, %s, %s' % (prefix, self.peer_as,
                                                         self.peer_ip, snapshot,
                                                         ts, self.merge_as_path()))
@@ -104,6 +105,11 @@ class BgpDump:
                                                             self.merge_as_path()))
 
     def print_line(self, prefix, next_hop):
+        global snapshot
+        # Save snapshot time if this is the first run
+        if snapshot == 0:
+            snapshot = self.ts
+                    
         if self.ts_format == 'dump':
             d = self.ts
         else:
