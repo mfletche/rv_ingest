@@ -24,5 +24,4 @@ class CassSession:
         already rows in the table with the same prefix and timestamp a unique,
         ascending sequence number must be added.
         """
-        # TODO: Sanitize input.
         rows = self.session.execute('SELECT * from bgp6.bgpevents WHERE prefix=%s AND ')

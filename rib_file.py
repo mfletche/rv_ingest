@@ -88,6 +88,20 @@ class BgpDump:
         self.as4_aggr = ''
         self.old_state = 0
         self.new_state = 0
+        
+    def write_rib_to_csv_line(self, prefix, ts):
+        snapshot = ' '
+        self.output.write('%s, %s, %s, %s, %s, %s' % (prefix, self.peer_as,
+                                                        self.peer_ip, snapshot,
+                                                        ts, self.merge_as_path()))
+
+    def write_event_to_csv_line(self, prefix, ts, seq):
+        seq = ' '
+        self.output.write('%s, %s, %s, %s, %s, %s, %s' % (prefix, ts, seq,
+                                                            self.peer_as,
+                                                            self.peer_ip,
+                                                            self.flag,
+                                                            self.merge_as_path()))
 
     def print_line(self, prefix, next_hop):
         if self.ts_format == 'dump':
@@ -109,13 +123,9 @@ class BgpDump:
             #    self.type, d, self.flag, self.peer_ip, self.peer_as, prefix,
             #    self.merge_as_path(), self.origin))
             if self.flag == 'B':
-                self.output.write('INSERT INTO bgp6.rib (prefix, peer, peerip, snapshot, ts, aspath) VALUES (%s, %s, %s, %s, %s, %s)' % (
-                    prefix, self.peer_as, self.peer_ip, d, d, self.merge_as_path()
-                    ))
+                self.write_rib_to_csv_line(prefix, d)
             else:
-                self.output.write('INSERT INTO bgp6.bgpevents (prefix, ts, sequence, peer, peerip, type, aspath) VALUES (%s, %s, %s, %s, %s, %s, %s)' % (
-                    prefix, d, d, self.peer_as, self.peer_ip, self.flag, self.merge_as_path()
-                    ))
+                self.write_event_to_csv_line(prefix, ts, seq)
             if self.verbose == True:
                 self.output.write('|%s|%d|%d|%s|%s|%s|\n' % (
                     next_hop, self.local_pref, self.med, self.comm,
@@ -123,12 +133,7 @@ class BgpDump:
             else:
                 self.output.write('\n')
         elif self.flag == 'W':
-            #self.output.write('%s|%s|%s|%s|%s|%s\n' % (
-                #self.type, d, self.flag, self.peer_ip, self.peer_as,
-                #prefix))
-            self.output.write('INSERT INTO bgp6.bgpevents (prefix, ts, sequence, peer, peerip, type, aspath) VALUES (%s, %s, %s, %s, %s, %s, %s)\n' % (
-                prefix, d, d, self.peer_as, self.peer_ip, self.flag, ' '
-                ))
+            self.write_event_to_csv_line(prefix, ts, seq)
         elif self.flag == 'STATE':
             self.output.write('%s|%s|%s|%s|%s|%d|%d\n' % (
                 self.type, d, self.flag, self.peer_ip, self.peer_as,
