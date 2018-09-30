@@ -24,6 +24,26 @@ from mrtparse import *
 peer = None
 snapshot = 0
 
+class SeqGenerator:
+    
+    def __init__(self):
+        self.dict = {}
+    
+    def get_seq(self, prefix, ts):
+        entry = self.dict.get(prefix)
+        
+        # If the prefix is new, or the timestamp has changed
+        if not entry or entry[0] != ts:
+            # Create entry with next seq number
+            self.dict[prefix] = [ts, 1]
+            return 0
+        else:
+            seq = entry[1]
+            entry[1] += 1
+            return seq
+
+seq = SeqGenerator()
+
 def parse_args():
     p = argparse.ArgumentParser(
         description='This script converts to bgpdump format.')
@@ -96,9 +116,10 @@ class BgpDump:
                                                         self.peer_ip, snapshot,
                                                         ts, self.merge_as_path()))
 
-    def write_event_to_csv_line(self, prefix, ts, seq):
-        seq = ' '
-        self.output.write('%s, %s, %s, %s, %s, %s, %s' % (prefix, ts, seq,
+    def write_event_to_csv_line(self, prefix, ts):
+        global seq
+        sn = seq.get_seq(prefix, ts)
+        self.output.write('%s, %s, %s, %s, %s, %s, %s' % (prefix, ts, sn,
                                                             self.peer_as,
                                                             self.peer_ip,
                                                             self.flag,
@@ -132,7 +153,7 @@ class BgpDump:
             if self.flag == 'B':
                 self.write_rib_to_csv_line(prefix, d)
             else:
-                self.write_event_to_csv_line(prefix, ts, seq)
+                self.write_event_to_csv_line(prefix, d)
             if self.verbose == True:
                 self.output.write('|%s|%d|%d|%s|%s|%s|\n' % (
                     next_hop, self.local_pref, self.med, self.comm,
@@ -140,7 +161,8 @@ class BgpDump:
             else:
                 self.output.write('\n')
         elif self.flag == 'W':
-            self.write_event_to_csv_line(prefix, ts, seq)
+            self.write_event_to_csv_line(prefix, d)
+            self.output.write('\n')
         elif self.flag == 'STATE':
             self.output.write('%s|%s|%s|%s|%s|%d|%d\n' % (
                 self.type, d, self.flag, self.peer_ip, self.peer_as,
@@ -299,6 +321,7 @@ class BgpDump:
             return self.aggr
 
 def main():
+    global seq
     args = parse_args()
     d = Reader(args.path_to_file)
     count = 0
