@@ -115,11 +115,12 @@ class BgpDump:
         else:
             d = self.org_time
 
-        if self.verbose:
-            d = str(d)
-        else:
-            d = datetime.utcfromtimestamp(d).\
-                strftime('%m/%d/%y %H:%M:%S')
+        #if self.verbose:
+        #    d = str(d)
+        #else:
+        #    d = datetime.utcfromtimestamp(d).\
+        #        strftime('%m/%d/%y %H:%M:%S')
+        d = str(d)
 
         if self.pkt_num == True:
             d = '%d|%s' % (self.num, d)
