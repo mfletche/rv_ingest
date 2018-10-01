@@ -96,9 +96,10 @@ else:
     sys.stderr.write('Cannot determine format: %s' % (localfile))
     exit()
 
-
 logoutput.write('Beginning copy\n')
-r = subprocess.call('cqlsh ' + r8_ip + ' -e "' + insert_q + ("'%s'" % tmpname) + '"' + copy_options, shell=True)
+cmd = 'cqlsh ' + r8_ip + ' -e "' + insert_q + ("'%s'" % tmpname) + copy_options + '"'
+print(cmd)
+r = subprocess.call(cmd, shell=True)
 logoutput.write('Copy finished\n')
 
 #loader_args = ['-f', '%s' % (tmpname), '-host', '130.217.250.114', '-schema', '%s' % (rib_schema)]
