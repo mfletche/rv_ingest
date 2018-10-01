@@ -64,7 +64,7 @@ class RIBFile(MRTFile):
     
     def __init__(self, inputpath, outputpath):
         MRTFile.__init__(self, inputpath, outputpath)
-        self.import_query = ('SELECT * FROM importedrib WHERE file="%s";' % self.name)
+        self.import_query = ('SELECT * FROM importedrib WHERE file="%s"' % self.name)
         
     def write_line(self):
         self.delimiter.join(
@@ -77,11 +77,11 @@ class RIBFile(MRTFile):
         )
         
     def insert_into_meta_table(self):
-        assert session
+        assert self.session
         global username
         import_insert = ('INSERT INTO importedrib (ts, who, file) VALUES (%s, %s, %s)'
             % (int(time.time()) * 1000, username, self.name))
-        result = session.execute(import_insert)
+        result = self.session.execute(import_insert)
         
     def insert_into_db(self):
         assert self.session
@@ -103,7 +103,7 @@ class UpdatesFile(MRTFile):
     
     def __init__(self, inputpath, outputpath):
         MRTFile.__init__(self, inputpath, outputpath)
-        self.import_query = ('SELECT * FROM imported WHERE file="%s";' % self.name)
+        self.import_query = ('SELECT * FROM imported WHERE file="%s"' % self.name)
         
     def write_line(self):
         self.delimiter.join(
@@ -117,11 +117,11 @@ class UpdatesFile(MRTFile):
         )   
     
     def insert_into_meta_table(self):
-        assert session
+        assert self.session
         global username
         import_insert = ('INSERT INTO imported (ts, who, file) VALUES (%s, %s, %s)'
             % (int(time.time()) * 1000, username, self.name))
-        result = session.execute(import_insert)
+        result = self.session.execute(import_insert)
     
     def insert_into_db(self):
         assert self.session
