@@ -108,7 +108,7 @@ for remotefile in RVCatalogue().listDataAfter(
     r = subprocess.call('cqlsh ' + r8_ip + ' -e "' + insert_q + ("'%s'" % tmpname) + '"', shell=True)
     logoutput.write('Copy finished\n')
     
-    #loader_args = '-fake -f %s -host 130.217.250.114 -schema %s' % (tmpname, rib_schema)
+    #loader_args = ['-f', '%s' % (tmpname), '-host', '130.217.250.114', '-schema', '%s' % (rib_schema)]
     
     # Bulk load into Cassandra
     #r = subprocess.call(['/home/mfletche/opt/cassandra-loader', loader_args])

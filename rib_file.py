@@ -97,7 +97,7 @@ class BgpDump:
         self.flag = ''
         self.peer_ip = ''
         self.peer_as = 0
-        self.nlri = []
+        self.nlri = [] 
         self.withdrawn = []
         self.as_path = []
         self.origin = ''
@@ -116,7 +116,7 @@ class BgpDump:
     def write_rib_to_csv_line(self, prefix, ts):
         global snapshot
         # snapshot is an int but ts is a string
-        self.output.write('\"%s\", %s, \"%s\", %s, %s, \"%s\"' % (prefix, self.peer_as,
+        self.output.write('"%s", %s, \"%s\", %s, %s, "%s"' % (prefix, self.peer_as,
                                                         self.peer_ip, snapshot * 1000,
                                                         int(ts) * 1000, self.merge_as_path()))
 
@@ -124,7 +124,7 @@ class BgpDump:
         global seq
         sn = seq.get_seq(prefix, ts)
         # snapshot is an int but ts is a string
-        self.output.write('\"%s\", %s, %s, %s, \"%s\", \"%s\", \"%s\"' % (prefix, int(ts) * 1000, sn,
+        self.output.write('"%s", %s, %s, %s, "%s", "%s", "%s"' % (prefix, int(ts) * 1000, sn,
                                                             self.peer_as,
                                                             self.peer_ip,
                                                             self.flag,
