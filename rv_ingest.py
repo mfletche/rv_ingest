@@ -105,7 +105,7 @@ else:
     exit()
 
 logoutput.write('Beginning copy\n')
-r = subprocess.call(['cqlsh', "%s" % r8_ip, "-e", '"%s \'%s\'"' % (rib_copy, tmpname)])
+r = subprocess.call('cqlsh ' + r8_ip + '-e "' + insert_q + ("'%s'" % tmpname) + '"', shell=True) 
 logoutput.write('Copy finished\n')
 
 #loader_args = '-fake -f %s -host 130.217.250.114 -schema %s' % (tmpname, rib_schema)
