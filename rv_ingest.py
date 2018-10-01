@@ -64,24 +64,24 @@ def convert_mrt_to_csv(input, output):
             b.bgp4mp(m, count)
         count += 1
 
-#for remotefile in RVCatalogue().listDataAfter(
-#    'http://archive.routeviews.org/route-views6/bgpdata/',
-#    arrow.get(2018, 9, 25, 0, 0)):
+for remotefile in RVCatalogue().listDataAfter(
+    'http://archive.routeviews.org/route-views6/bgpdata/',
+    arrow.get(2018, 9, 25, 0, 0)):
     
     # Work out filename
-    #localfile = remotefile.rsplit('/', 1)[-1]
-    #localfile = localfile.encode('utf-8')   # localfile was a Unicode string
+    localfile = remotefile.rsplit('/', 1)[-1]
+    localfile = localfile.encode('utf-8')   # localfile was a Unicode string
     
-#localfile = 'rib.20180925.0000.bz2'
-#if localfile.startswith('rib'):
+localfile = 'rib.20180925.0000.bz2'
+if localfile.startswith('rib'):
     # Only fetch RIB files which have a midnight timestamp
-#    tm = RVCatalogue().getUTCTime(localfile)
-#    if not (tm.hour == 0 and tm.minute == 0):
-#        exit() 
+    tm = RVCatalogue().getUTCTime(localfile)
+    if not (tm.hour == 0 and tm.minute == 0):
+        exit() 
     
-    #fetch_file(remotefile, localfile)
+fetch_file(remotefile, localfile)
 
-#convert_mrt_to_csv(localfile, tmpname)
+convert_mrt_to_csv(localfile, tmpname)
 
 # Insert items from the CSV file into the Cassandra database. There is a faster
 # way to do this (bulk loading) but that will take a bit of extra work
