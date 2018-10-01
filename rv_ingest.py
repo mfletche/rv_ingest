@@ -9,8 +9,9 @@ from cassandra.cluster import Cluster
 tmpname = 'tmp.csv'
 bgpevents_schema = '"bgp6.bgpevents(prefix,ts,sequence,peer,peerip,type,aspath)"'
 rib_schema = '"bgp6.rib(prefix,peer,peerip,snapshot,ts,aspath)"'
+r8_ip = ['130.217.250.114']
 
-cluster = Cluster()
+cluster = Cluster(r8_ip)
 session = cluster.connect('bgp6')
 
 events_insert = session.prepare('INSERT INTO bgp6.bgpevents ' \
