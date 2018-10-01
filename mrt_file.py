@@ -41,7 +41,17 @@ class MRTFile(Base):
         assert self.session
         
         rows = self.session.execute(self.import_query)
-        return (len(rows) > 0)
+        return (len(rows.current_rows) > 0)
+        
+    def insert_into_meta_table(self):
+        """ Insert a row into the meta table in the Cassandra database for this
+        file. 'import_insert' is defined in each subclass.
+        """
+        assert self.session
+        global username
+        self.import_insert = ("INSERT INTO importedrib (ts, who, file) VALUES (%s, '%s', '%s')"
+            % (int(time.time()) * 1000, username, self.name))
+        result = self.session.execute(import_insert)
     
     def do_bulk_insert():
         assert outputfile
@@ -62,9 +72,10 @@ class RIBFile(MRTFile):
     # Schema for cassandra-loader
     schema = '"bgp6.rib(prefix,peer,peerip,snapshot,ts,aspath)"'
     
-    def __init__(self, inputpath, outputpath):
-        MRTFile.__init__(self, inputpath, outputpath)
-        self.import_query = ('SELECT * FROM importedrib WHERE file="%s"' % self.name)
+    def __init__(self, inputpath, outputpath, session=None):
+        MRTFile.__init__(self, inputpath, outputpath, session=session)
+        self.import_query = ("SELECT * FROM importedrib WHERE file='%s'" % self.name)
+        self.import_insert = "INSERT INTO importedrib (ts, who, file) VALUES ({0}, '{1}', '{2}')"
         
     def write_line(self):
         self.delimiter.join(
@@ -79,8 +90,9 @@ class RIBFile(MRTFile):
     def insert_into_meta_table(self):
         assert self.session
         global username
-        import_insert = ('INSERT INTO importedrib (ts, who, file) VALUES (%s, %s, %s)'
-            % (int(time.time()) * 1000, username, self.name))
+        
+        # Substitute values in each time because timestamp may change.
+        import_insert = self.import_insert.format(int(time.time()) * 1000, username, self.name)
         result = self.session.execute(import_insert)
         
     def insert_into_db(self):
@@ -101,9 +113,10 @@ class UpdatesFile(MRTFile):
     # Schema for cassandra-loader
     schema = '"bgp6.bgpevents(prefix,ts,sequence,peer,peerip,type,aspath)"'
     
-    def __init__(self, inputpath, outputpath):
-        MRTFile.__init__(self, inputpath, outputpath)
-        self.import_query = ('SELECT * FROM imported WHERE file="%s"' % self.name)
+    def __init__(self, inputpath, outputpath, session=None):
+        MRTFile.__init__(self, inputpath, outputpath, session=session)
+        self.import_query = ("SELECT * FROM imported WHERE file='%s'" % self.name)
+        self.import_insert = ("INSERT INTO imported (ts, who, file) VALUES ({0}, '{1}', '{2}')"
         
     def write_line(self):
         self.delimiter.join(
@@ -119,8 +132,7 @@ class UpdatesFile(MRTFile):
     def insert_into_meta_table(self):
         assert self.session
         global username
-        import_insert = ('INSERT INTO imported (ts, who, file) VALUES (%s, %s, %s)'
-            % (int(time.time()) * 1000, username, self.name))
+        import_insert = self.import_insert.format(int(time.time()) * 1000, username, self.name)
         result = self.session.execute(import_insert)
     
     def insert_into_db(self):
