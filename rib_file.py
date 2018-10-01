@@ -119,7 +119,6 @@ class BgpDump:
         self.output.write('"%s"|%s|"%s"|%s|%s|"%s"' % (prefix, self.peer_as,
                                                         self.peer_ip, snapshot * 1000,
                                                         int(ts) * 1000, self.merge_as_path()))
-        print(self.merge_as_path())
 
     def write_event_to_csv_line(self, prefix, ts):
         global seq
@@ -306,7 +305,7 @@ class BgpDump:
                     self.as4_path.append('(' + seg['val'][0])
                     self.as4_path += seg['val'][1:-1]
                     self.as4_path.append(seg['val'][-1] + ')')
-                elif seg['type'] == AS_PATH_SEG_T['AS_CONFE        D_SET']:
+                elif seg['type'] == AS_PATH_SEG_T['AS_CONFED_SET']:
                     self.as4_path.append('[%s]' % ','.join(seg['val']))
                 else:
                     self.as4_path += seg['val']
