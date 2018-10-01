@@ -49,8 +49,7 @@ class MRTFile(Base):
         """
         assert self.session
         global username
-        self.import_insert = ("INSERT INTO importedrib (ts, who, file) VALUES (%s, '%s', '%s')"
-            % (int(time.time()) * 1000, username, self.name))
+        self.import_insert.format(int(time.time()) * 1000, username, self.name)
         result = self.session.execute(import_insert)
     
     def do_bulk_insert():
@@ -87,14 +86,6 @@ class RIBFile(MRTFile):
             '"%s"' % self.merge_as_path()
         )
         
-    def insert_into_meta_table(self):
-        assert self.session
-        global username
-        
-        # Substitute values in each time because timestamp may change.
-        import_insert = self.import_insert.format(int(time.time()) * 1000, username, self.name)
-        result = self.session.execute(import_insert)
-        
     def insert_into_db(self):
         assert self.session
         
@@ -116,7 +107,7 @@ class UpdatesFile(MRTFile):
     def __init__(self, inputpath, outputpath, session=None):
         MRTFile.__init__(self, inputpath, outputpath, session=session)
         self.import_query = ("SELECT * FROM imported WHERE file='%s'" % self.name)
-        self.import_insert = ("INSERT INTO imported (ts, who, file) VALUES ({0}, '{1}', '{2}')"
+        self.import_insert = "INSERT INTO imported (ts, who, file) VALUES ({0}, '{1}', '{2}')"
         
     def write_line(self):
         self.delimiter.join(
@@ -128,12 +119,6 @@ class UpdatesFile(MRTFile):
             '"%s"' % self.flag,
             '"%s"' % self.merge_as_path()
         )   
-    
-    def insert_into_meta_table(self):
-        assert self.session
-        global username
-        import_insert = self.import_insert.format(int(time.time()) * 1000, username, self.name)
-        result = self.session.execute(import_insert)
     
     def insert_into_db(self):
         assert self.session
