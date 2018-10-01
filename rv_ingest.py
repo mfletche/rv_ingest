@@ -6,6 +6,8 @@ from mrtparse import *
 import subprocess
 from cassandra.cluster import Cluster
 
+logoutput = sys.stdout
+
 tmpname = 'tmp.csv'
 bgpevents_schema = '"bgp6.bgpevents(prefix,ts,sequence,peer,peerip,type,aspath)"'
 rib_schema = '"bgp6.rib(prefix,peer,peerip,snapshot,ts,aspath)"'
@@ -49,8 +51,6 @@ def fetch_file(url, tofile):
     
 def convert_mrt_to_csv(input, output):
     # Convert to CSV file
-    print(type(input))
-    print(input)
     d = Reader(input)
     bgpargs.output = open(tmpname, 'w')
     count = 0
@@ -82,9 +82,13 @@ if localfile.startswith('rib'):
     if not (tm.hour == 0 and tm.minute == 0):
         exit() 
     
+logoutput.write('Fetching remote file: %s' % (remotefile))
 fetch_file(remotefile, localfile)
+logoutput.write('Fetched remote file: %s' % (remotefile))
 
+logoutput.write('Converting to CSV')
 convert_mrt_to_csv(localfile, tmpname)
+logoutput.write('Converted to CSV')
 
 # Insert items from the CSV file into the Cassandra database. There is a faster
 # way to do this (bulk loading) but that will take a bit of extra work
@@ -97,10 +101,13 @@ else:
     sys.stderr.write('Cannot determine format: %s' % (localfile))
     exit()
 
-with open(tmpname) as fp:
-    line = fp.readline()
-    while line:
-        future = session.execute_async(insert_q + '\'%s\'' % (tmpname))
+logoutput.write('Beginning copy')
+future = session.execute_async(insert_q + '\'%s\'' % (tmpname))
+try:
+    rows = future.result()
+    logoutput.write('Copy finished')
+except ReadTimeout:
+    sys.stderr.write('Query timed out')
 
 #loader_args = '-fake -f %s -host 130.217.250.114 -schema %s' % (tmpname, rib_schema)
 
