@@ -25,9 +25,8 @@ imported_insert = session.prepare('INSERT INTO bgp6.imported ' \
 importedrib_insert = session.prepare('INSERT INTO bgp6.importedrib ' \
     + '(ts, who, file) VALUES (?, \'?\', \'?\')')
 
-events_copy = session.prepare('COPY bgp6.bgpevents ' \
-                              + '(prefix, ts, sequence, peer, peerip, type, aspath) FROM \'?\'')
-rib_copy = session.prepare('COPY bgp6.rib (prefix, peer, peerip, snapshot, ts, aspath) FROM \'?\'')
+events_copy = 'COPY bgp6.bgpevents (prefix, ts, sequence, peer, peerip, type, aspath) FROM '
+rib_copy = 'COPY bgp6.rib (prefix, peer, peerip, snapshot, ts, aspath) FROM '
 
 # This class is just so I can construct an args object manually
 class Object(object):
@@ -53,7 +52,7 @@ def convert_mrt_to_csv(input, output):
     print(type(input))
     print(input)
     d = Reader(input)
-    bgpargs.output = open(tmpname, 'wb')
+    bgpargs.output = open(tmpname, 'w')
     count = 0
     for m in d:
         m = m.mrt
@@ -101,7 +100,7 @@ else:
 with open(tmpname) as fp:
     line = fp.readline()
     while line:
-        future = session.execute_async(insert_q, [tmpname])
+        future = session.execute_async(insert_q + '\'%s\'' % (tmpname))
 
 #loader_args = '-fake -f %s -host 130.217.250.114 -schema %s' % (tmpname, rib_schema)
 
