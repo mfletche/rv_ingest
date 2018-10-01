@@ -149,7 +149,7 @@ class BgpDump:
         if self.pkt_num == True:
             d = '%d|%s' % (self.num, d)
 
-        if self.flag == 'B' or self.flag == 'A':
+        if self.flag == 'B' or self.flag == 'A' or self.force:
             #self.output.write('%s|%s|%s|%s|%s|%s|%s|%s' % (
             #    self.type, d, self.flag, self.peer_ip, self.peer_as, prefix,
             #    self.merge_as_path(), self.origin))
@@ -284,7 +284,7 @@ class BgpDump:
             self.comm = ' '.join(attr.comm)
         elif attr.type == BGP_ATTR_T['MP_REACH_NLRI']:
             self.next_hop = attr.mp_reach['next_hop']
-            if self.type != 'BGP4MP':
+            if self.typquie != 'BGP4MP':
                 return
             for nlri in attr.mp_reach['nlri']:
                 self.nlri.append('%s/%d' % (nlri.prefix, nlri.plen))
