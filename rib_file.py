@@ -116,7 +116,7 @@ class BgpDump:
     def write_rib_to_csv_line(self, prefix, ts):
         global snapshot
         # snapshot is an int but ts is a string
-        self.output.write('"%s", %s, \"%s\", %s, %s, "%s"' % (prefix, self.peer_as,
+        self.output.write('"%s", %s, "%s", %s, %s, "%s"' % (prefix, self.peer_as,
                                                         self.peer_ip, snapshot * 1000,
                                                         int(ts) * 1000, self.merge_as_path()))
 
