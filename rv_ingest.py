@@ -93,8 +93,7 @@ for remotefile in RVCatalogue().listDataAfter(
         convert_mrt_to_csv(localfile, tmpname)
     logoutput.write('Converted to CSV\n')
     
-    # Insert items from the CSV file into the Cassandra database. There is a faster
-    # way to do this (bulk loading) but that will take a bit of extra work
+    # COPY can take up to 2 million entries
     
     if localfile.startswith('rib'):
         insert_q = rib_copy
@@ -104,8 +103,9 @@ for remotefile in RVCatalogue().listDataAfter(
         sys.stderr.write('Cannot determine format: %s' % (localfile))
         exit()
     
+    
     logoutput.write('Beginning copy\n')
-    r = subprocess.call('cqlsh ' + r8_ip + ' -e "' + insert_q + ("'%s'" % tmpname) + '"', shell=True) 
+    r = subprocess.call('cqlsh ' + r8_ip + ' -e "' + insert_q + ("'%s'" % tmpname) + '"', shell=True)
     logoutput.write('Copy finished\n')
     
     #loader_args = '-fake -f %s -host 130.217.250.114 -schema %s' % (tmpname, rib_schema)
