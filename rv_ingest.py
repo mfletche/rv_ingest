@@ -16,14 +16,14 @@ session = cluster.connect('bgp6')
 
 events_insert = session.prepare('INSERT INTO bgp6.bgpevents ' \
     + '(prefix, ts, sequence, peer, peerip, type, aspath) VALUES ' \
-    + '(\"?\", ?, ?, ?, \"?\", \"?\", \"?\")')
+    + '(\'?\', ?, ?, ?, \'?\', \'?\', \'?\')')
 rib_insert = session.prepare('INSERT INTO bgp6.rib ' \
     + '(prefix, peer, peerip, snapshot, ts, aspath) VALUES ' \
-    + '(\"?\", ?, \"?\", ?, ?, \"?\")')
+    + '(\'?\', ?, \'?\', ?, ?, \'?\')')
 imported_insert = session.prepare('INSERT INTO bgp6.imported ' \
-    + '(ts, who, file) VALUES (?, \"?\", \"?\")')
+    + '(ts, who, file) VALUES (?, \'?\', \'?\')')
 importedrib_insert = session.prepare('INSERT INTO bgp6.importedrib ' \
-    + '(ts, who, filename) VALUES (?, \"?\", \"?\")')
+    + '(ts, who, filename) VALUES (?, \'?\', \'?\')')
 
 # This class is just so I can construct an args object manually
 class Object(object):
