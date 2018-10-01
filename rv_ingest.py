@@ -25,6 +25,10 @@ imported_insert = session.prepare('INSERT INTO bgp6.imported ' \
 importedrib_insert = session.prepare('INSERT INTO bgp6.importedrib ' \
     + '(ts, who, file) VALUES (?, \'?\', \'?\')')
 
+events_copy = session.prepare('COPY bgp6.bgpevents ' \
+                              + '(prefix, ts, sequence, peer, peerip, type, aspath) FROM \'?\'')
+rib_copy = session.prepare('COPY bgp6.rib (prefix, peer, peerip, snapshot, ts, aspath) FROM \'?\'')
+
 # This class is just so I can construct an args object manually
 class Object(object):
     pass
@@ -87,9 +91,9 @@ convert_mrt_to_csv(localfile, tmpname)
 # way to do this (bulk loading) but that will take a bit of extra work
 
 if localfile.startswith('rib'):
-    insert_q = rib_insert
+    insert_q = rib_copy
 elif localfile.startswith('updates'):
-    insert_q = events_insert
+    insert_q = events_copy
 else:
     sys.stderr.write('Cannot determine format: %s' % (localfile))
     exit()
@@ -97,7 +101,7 @@ else:
 with open(tmpname) as fp:
     line = fp.readline()
     while line:
-        future = session.execute_async(insert_q, line.split(','))
+        future = session.execute_async(insert_q, [tmpname])
 
 #loader_args = '-fake -f %s -host 130.217.250.114 -schema %s' % (tmpname, rib_schema)
 
