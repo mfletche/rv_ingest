@@ -105,7 +105,7 @@ else:
     exit()
 
 logoutput.write('Beginning copy\n')
-args = '%s "%s' % (r8_ip, rib_copy) + '\'%s\'"' % tmpname
+args = '%s -e "%s' % (r8_ip, rib_copy) + '\'%s\'"' % tmpname
 print(args)
 r = subprocess.call(['cqlsh', args])
 logoutput.write('Copy finished\n')
