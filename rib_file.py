@@ -112,14 +112,22 @@ class BgpDump:
         
     def write_rib_to_csv_line(self, prefix, ts):
         global snapshot
-        self.output.write('%s, %s, %s, %s, %s, %s' % (prefix, self.peer_as,
+        self.output.write('\"%s\", %s, \"%s\", %s, %s, \"%s\"' % (prefix, self.peer_as,
+                                                        self.peer_ip, snapshot,
+                                                        ts, self.merge_as_path()))
+        print('\"%s\", %s, \"%s\", %s, %s, \"%s\"' % (prefix, self.peer_as,
                                                         self.peer_ip, snapshot,
                                                         ts, self.merge_as_path()))
 
     def write_event_to_csv_line(self, prefix, ts):
         global seq
         sn = seq.get_seq(prefix, ts)
-        self.output.write('%s, %s, %s, %s, %s, %s, %s' % (prefix, ts, sn,
+        self.output.write('\"%s\", %s, %s, %s, \"%s\", \"%s\", \"%s\"' % (prefix, ts, sn,
+                                                            self.peer_as,
+                                                            self.peer_ip,
+                                                            self.flag,
+                                                            self.merge_as_path()))
+        print('\"%s\", %s, %s, %s, \"%s\", \"%s\", \"%s\"' % (prefix, ts, sn,
                                                             self.peer_as,
                                                             self.peer_ip,
                                                             self.flag,
@@ -162,7 +170,7 @@ class BgpDump:
                 self.output.write('\n')
         elif self.flag == 'W':
             self.write_event_to_csv_line(prefix, d)
-            self.output.write('\n')
+            self.output.write('\n') # There is already a \n after 'A' and 'B'
         elif self.flag == 'STATE':
             self.output.write('%s|%s|%s|%s|%s|%d|%d\n' % (
                 self.type, d, self.flag, self.peer_ip, self.peer_as,
@@ -337,6 +345,7 @@ def main():
         elif m.type == MRT_T['BGP4MP']:
             b.bgp4mp(m, count)
         count += 1
+    print('%s rows' % (count))
 
 if __name__ == '__main__':
     main()
