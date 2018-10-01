@@ -83,7 +83,9 @@ class BgpDump:
         'atomic_aggr', 'aggr', 'as4_path', 'as4_aggr', 'old_state', 'new_state',
     ]
 
-    def __init__(self, args):
+    # 'force' will make the output format compatible with the RIB table instead
+    # of automatically formatting it for the UPDATE table.
+    def __init__(self, args, force=False):
         self.verbose = args.verbose
         self.output = args.output
         self.ts_format = args.ts_format
@@ -109,6 +111,7 @@ class BgpDump:
         self.as4_aggr = ''
         self.old_state = 0
         self.new_state = 0
+        self.force = force
         
     def write_rib_to_csv_line(self, prefix, ts):
         global snapshot
@@ -150,7 +153,7 @@ class BgpDump:
             #self.output.write('%s|%s|%s|%s|%s|%s|%s|%s' % (
             #    self.type, d, self.flag, self.peer_ip, self.peer_as, prefix,
             #    self.merge_as_path(), self.origin))
-            if self.flag == 'B':
+            if self.flag == 'B' or self.force:
                 self.write_rib_to_csv_line(prefix, d)
             else:
                 self.write_event_to_csv_line(prefix, d)

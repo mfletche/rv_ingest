@@ -49,8 +49,8 @@ def fetch_file(url, tofile):
         c.perform()
         c.close()
         local.close()
-    
-def convert_mrt_to_csv(input, output):
+
+def convert_mrt_to_csv(input, output, forceRIB=False):
     # Convert to CSV file
     d = Reader(input)
     bgpargs.output = open(tmpname, 'w')
@@ -59,7 +59,7 @@ def convert_mrt_to_csv(input, output):
         m = m.mrt
         if m.err:
             continue
-        b = BgpDump(bgpargs)
+        b = BgpDump(bgpargs, forceRIB)
         if m.type == MRT_T['TABLE_DUMP']:
             b.td(m, count)
         elif m.type == MRT_T['TABLE_DUMP_V2']:
@@ -88,7 +88,10 @@ fetch_file(remotefile, localfile)
 logoutput.write('Fetched remote file: %s' % (remotefile))
 
 logoutput.write('Converting to CSV')
-convert_mrt_to_csv(localfile, tmpname)
+if localfile.startswith('rib'):
+    convert_mrt_to_csv(localfile, tmpname, force=True)
+else:
+    convert_mrt_to_csv(localfile, tmpname)
 logoutput.write('Converted to CSV')
 
 # Insert items from the CSV file into the Cassandra database. There is a faster
