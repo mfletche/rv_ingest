@@ -306,7 +306,7 @@ class BgpDump:
                     self.as4_path.append('(' + seg['val'][0])
                     self.as4_path += seg['val'][1:-1]
                     self.as4_path.append(seg['val'][-1] + ')')
-                elif seg['type'] == AS_PATH_SEG_T['AS_CONFED_SET']:
+                elif seg['type'] == AS_PATH_SEG_T['AS_CONFE        D_SET']:
                     self.as4_path.append('[%s]' % ','.join(seg['val']))
                 else:
                     self.as4_path += seg['val']

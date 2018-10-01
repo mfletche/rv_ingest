@@ -58,52 +58,50 @@ def convert_mrt_to_csv(input, output, forceRIB=False):
             b.bgp4mp(m, count)
         count += 1
 
-#for remotefile in RVCatalogue().listDataAfter(
-#    'http://archive.routeviews.org/route-views6/bgpdata/',
-#    arrow.get(2018, 9, 25, 0, 0)):
+for remotefile in RVCatalogue().listDataAfter(
+    'http://archive.routeviews.org/route-views6/bgpdata/',
+    arrow.get(2018, 9, 25, 0, 0)):
 
     
     # Work out filename
-#    localfile = remotefile.rsplit('/', 1)[-1]
-#    localfile = localfile.encode('utf-8')   # localfile was a Unicode string
+    localfile = remotefile.rsplit('/', 1)[-1]
+    localfile = localfile.encode('utf-8')   # localfile was a Unicode string
     
-
-localfile = "rib.20180925.0000.bz2"
-if localfile.startswith('rib'):
-    # Only fetch RIB files which have a midnight timestamp
-    tm = RVCatalogue().getUTCTime(localfile)
-    if not (tm.hour == 0 and tm.minute == 0):
-        exit() 
+    if localfile.startswith('rib'):
+        # Only fetch RIB files which have a midnight timestamp
+        tm = RVCatalogue().getUTCTime(localfile)
+        if not (tm.hour == 0 and tm.minute == 0):
+            continue 
+        
+    logoutput.write('Fetching remote file: %s\n' % (remotefile))
+    fetch_file(remotefile, localfile)
+    logoutput.write('Fetched remote file: %s\n' % (remotefile))
     
-#logoutput.write('Fetching remote file: %s\n' % (remotefile))
-#fetch_file(remotefile, localfile)
-#logoutput.write('Fetched remote file: %s\n' % (remotefile))
-
-logoutput.write('Converting to CSV\n')
-if localfile.startswith('rib'):
-    convert_mrt_to_csv(localfile, tmpname, forceRIB=True)
-else:
-    convert_mrt_to_csv(localfile, tmpname)
-logoutput.write('Converted to CSV\n')
-
-# COPY can take up to 2 million entries
-
-if localfile.startswith('rib'):
-    insert_q = rib_copy
-elif localfile.startswith('updates'):
-    insert_q = events_copy
-else:
-    sys.stderr.write('Cannot determine format: %s' % (localfile))
-    exit()
-
-logoutput.write('Beginning copy\n')
-cmd = 'cqlsh ' + r8_ip + ' -e "' + insert_q + ("'%s'" % tmpname) + copy_options + '"'
-print(cmd)
-r = subprocess.call(cmd, shell=True)
-logoutput.write('Copy finished\n')
-
-#loader_args = ['-f', '%s' % (tmpname), '-host', '130.217.250.114', '-schema', '%s' % (rib_schema)]
-
-# An alternative option to bulk load into Cassandra
-#r = subprocess.call(['/home/mfletche/opt/cassandra-loader', loader_args])
-#print('Return code: %s' % (r))
+    logoutput.write('Converting to CSV\n')
+    if localfile.startswith('rib'):
+        convert_mrt_to_csv(localfile, tmpname, forceRIB=True)
+    else:
+        convert_mrt_to_csv(localfile, tmpname)
+    logoutput.write('Converted to CSV\n')
+    
+    # COPY can take up to 2 million entries
+    
+    if localfile.startswith('rib'):
+        insert_q = rib_copy
+    elif localfile.startswith('updates'):
+        insert_q = events_copy
+    else:
+        sys.stderr.write('Cannot determine format: %s' % (localfile))
+        exit()
+    
+    logoutput.write('Beginning copy\n')
+    cmd = 'cqlsh ' + r8_ip + ' -e "' + insert_q + ("'%s'" % tmpname) + copy_options + '"'
+    print(cmd)
+    r = subprocess.call(cmd, shell=True)
+    logoutput.write('Copy finished\n')
+    
+    #loader_args = ['-f', '%s' % (tmpname), '-host', '130.217.250.114', '-schema', '%s' % (rib_schema)]
+    
+    # An alternative option to bulk load into Cassandra
+    #r = subprocess.call(['/home/mfletche/opt/cassandra-loader', loader_args])
+    #print('Return code: %s' % (r))
