@@ -116,13 +116,13 @@ class BgpDump:
     def write_rib_to_csv_line(self, prefix, ts):
         global snapshot
         self.output.write('\"%s\", %s, \"%s\", %s, %s, \"%s\"' % (prefix, self.peer_as,
-                                                        self.peer_ip, snapshot,
-                                                        ts, self.merge_as_path()))
+                                                        self.peer_ip, snapshot * 1000,
+                                                        ts * 1000, self.merge_as_path()))
 
     def write_event_to_csv_line(self, prefix, ts):
         global seq
         sn = seq.get_seq(prefix, ts)
-        self.output.write('\"%s\", %s, %s, %s, \"%s\", \"%s\", \"%s\"' % (prefix, ts, sn,
+        self.output.write('\"%s\", %s, %s, %s, \"%s\", \"%s\", \"%s\"' % (prefix, ts * 1000, sn,
                                                             self.peer_as,
                                                             self.peer_ip,
                                                             self.flag,
