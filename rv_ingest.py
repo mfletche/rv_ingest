@@ -5,6 +5,7 @@ from rib_file import BgpDump
 from mrtparse import *
 import subprocess
 from cassandra.cluster import Cluster
+from cassandra import ReadTimeout
 
 logoutput = sys.stdout
 

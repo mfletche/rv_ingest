@@ -115,19 +115,11 @@ class BgpDump:
         self.output.write('\"%s\", %s, \"%s\", %s, %s, \"%s\"' % (prefix, self.peer_as,
                                                         self.peer_ip, snapshot,
                                                         ts, self.merge_as_path()))
-        print('\"%s\", %s, \"%s\", %s, %s, \"%s\"' % (prefix, self.peer_as,
-                                                        self.peer_ip, snapshot,
-                                                        ts, self.merge_as_path()))
 
     def write_event_to_csv_line(self, prefix, ts):
         global seq
         sn = seq.get_seq(prefix, ts)
         self.output.write('\"%s\", %s, %s, %s, \"%s\", \"%s\", \"%s\"' % (prefix, ts, sn,
-                                                            self.peer_as,
-                                                            self.peer_ip,
-                                                            self.flag,
-                                                            self.merge_as_path()))
-        print('\"%s\", %s, %s, %s, \"%s\", \"%s\", \"%s\"' % (prefix, ts, sn,
                                                             self.peer_as,
                                                             self.peer_ip,
                                                             self.flag,
