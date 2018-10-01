@@ -23,7 +23,7 @@ rib_insert = session.prepare('INSERT INTO bgp6.rib ' \
 imported_insert = session.prepare('INSERT INTO bgp6.imported ' \
     + '(ts, who, file) VALUES (?, \'?\', \'?\')')
 importedrib_insert = session.prepare('INSERT INTO bgp6.importedrib ' \
-    + '(ts, who, filename) VALUES (?, \'?\', \'?\')')
+    + '(ts, who, file) VALUES (?, \'?\', \'?\')')
 
 # This class is just so I can construct an args object manually
 class Object(object):
