@@ -284,7 +284,7 @@ class BgpDump:
             self.comm = ' '.join(attr.comm)
         elif attr.type == BGP_ATTR_T['MP_REACH_NLRI']:
             self.next_hop = attr.mp_reach['next_hop']
-            if self.typquie != 'BGP4MP':
+            if self.type != 'BGP4MP':
                 return
             for nlri in attr.mp_reach['nlri']:
                 self.nlri.append('%s/%d' % (nlri.prefix, nlri.plen))

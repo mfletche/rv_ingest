@@ -12,7 +12,7 @@ logoutput = sys.stdout
 tmpname = 'tmp.csv'
 bgpevents_schema = '"bgp6.bgpevents(prefix,ts,sequence,peer,peerip,type,aspath)"'
 rib_schema = '"bgp6.rib(prefix,peer,peerip,snapshot,ts,aspath)"'
-r8_ip = ['130.217.250.114']
+r8_ip = '130.217.250.114'
 
 cluster = Cluster(r8_ip)
 session = cluster.connect('bgp6')
@@ -106,12 +106,8 @@ else:
     exit()
 
 logoutput.write('Beginning copy')
-future = session.execute_async(insert_q + "'%s'" % (tmpname))
-try:
-    rows = future.result()
-    logoutput.write('Copy finished')
-except ReadTimeout:
-    sys.stderr.write('Query timed out')
+r = subprocess.call(['cqlsh', '"%s %s ' % (r8_ip, rib_copy) + '\'%s\'"' % tmpname])
+logoutput.write('Copy finished')
 
 #loader_args = '-fake -f %s -host 130.217.250.114 -schema %s' % (tmpname, rib_schema)
 
