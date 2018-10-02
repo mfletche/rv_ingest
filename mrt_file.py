@@ -94,7 +94,7 @@ class ProcessedRIBFile(ProcessedDataFile):
     def _do_bulk_insert(self):
         pass
 
-class ProcessedUpdatesFile(MRTFile):
+class ProcessedUpdatesFile(ProcessedDataFile):
     """ Represents an Updates file. Can process it into a '|'-delimited list of
     rows.
     """
