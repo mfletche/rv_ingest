@@ -68,7 +68,7 @@ class ProcessedDataFile(Base):
         self.outputfile.close()
         
 
-class ProcessedRIBFile(MRTFile):
+class ProcessedRIBFile(ProcessedDataFile):
     """ Represents a RIB file. Can process it into a '|'-delimited list of
     rows.
     """
