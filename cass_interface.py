@@ -21,7 +21,7 @@ COLUMNS_META = ['ts', 'who', 'file']
 
 # Seems like occasionally this will be set incorrectly unless specified
 DEFAULT_CONSISTENCY = ConsistencyLevel.LOCAL_ONE
-profile = ExecutionProfile(consistency_level=ConsistenceLevel.LOCAL_ONE)
+profile = ExecutionProfile(consistency_level=ConsistencyLevel.LOCAL_ONE)
 
 class CassInterface:
     """ Acts as an interface to the bgp6 keyspace in the Cassandra database.
