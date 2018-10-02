@@ -1,4 +1,6 @@
-from cassandra.cluster import Cluster
+from cassandra.cluster import Cluster, EXEC_PROFILE_DEFAULT
+from cassandra import ConsistencyLevel
+from cassandra.cluster import ExecutionProfile
 import time
 
 DEFAULT_NODE_IP = '130.217.250.114'
@@ -17,17 +19,22 @@ COLUMNS_BGPEVENTS = ['prefix', 'ts', 'sequence', 'peer', 'peerip', 'type', 'aspa
 # but not the order.
 COLUMNS_META = ['ts', 'who', 'file']
 
+# Seems like occasionally this will be set incorrectly unless specified
+DEFAULT_CONSISTENCY = ConsistencyLevel.LOCAL_ONE
+profile = ExecutionProfile(consistency_level=ConsistenceLevel.LOCAL_ONE)
+
 class CassInterface:
     """ Acts as an interface to the bgp6 keyspace in the Cassandra database.
     This file must be changed if any of the schemas change.
     """
     def __init__(self, ip=DEFAULT_NODE_IP, keyspace=DEFAULT_KEYSPACE,
                  who=DEFAULT_WHO):
-        cluster = Cluster([DEFAULT_NODE_IP])
+        cluster = Cluster([DEFAULT_NODE_IP], execution_profiles={EXEC_PROFILE_DEFAULT: profile})
         if keyspace:
             self.session = cluster.connect(keyspace)
         else:
             self.session = cluster.connect()
+            
         self.who = who
         
         # Prepared statements for very common queries
