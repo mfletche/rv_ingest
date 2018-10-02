@@ -30,7 +30,7 @@ class CassInterface:
         self.who = who
         
         # Prepared statements for very common queries
-        self.prep_stmt_insert_rib = session.prepare(
+        self.prep_stmt_insert_rib = self.session.prepare(
             'INSERT INTO %s (%s) '
             'VALUES (%s)' % (NAME_RIB, ', '.join(COLUMNS_RIB),
                              ', '.join(list('?'*len(COLUMNS_RIB))))
