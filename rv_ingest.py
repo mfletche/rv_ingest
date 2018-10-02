@@ -60,7 +60,7 @@ def convert_mrt_to_csv(input, output, forceRIB=False):
         count += 1
 
 cluster = Cluster([r8_ip])
-self.session = cluster.connect('bgp6')
+session = cluster.connect('bgp6')
 
 for remotefile in RVCatalogue().listDataAfter(
     'http://archive.routeviews.org/route-views6/bgpdata/',
