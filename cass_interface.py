@@ -19,17 +19,13 @@ COLUMNS_BGPEVENTS = ['prefix', 'ts', 'sequence', 'peer', 'peerip', 'type', 'aspa
 # but not the order.
 COLUMNS_META = ['ts', 'who', 'file']
 
-# Seems like occasionally this will be set incorrectly unless specified
-DEFAULT_CONSISTENCY = ConsistencyLevel.LOCAL_ONE
-profile = ExecutionProfile(consistency_level=ConsistencyLevel.LOCAL_ONE)
-
 class CassInterface:
     """ Acts as an interface to the bgp6 keyspace in the Cassandra database.
     This file must be changed if any of the schemas change.
     """
     def __init__(self, ip=DEFAULT_NODE_IP, keyspace=DEFAULT_KEYSPACE,
                  who=DEFAULT_WHO):
-        cluster = Cluster([DEFAULT_NODE_IP], execution_profiles={EXEC_PROFILE_DEFAULT: profile})
+        cluster = Cluster([DEFAULT_NODE_IP])
         if keyspace:
             self.session = cluster.connect(keyspace)
         else:
@@ -77,7 +73,7 @@ class CassInterface:
         """
         if ingested:
             prep_stmt = self.session.prepare(
-                'INSERT INTO {0} ({1}) VALUES (?, ?, ?) IF NOT EXISTS'.format(
+                'INSERT INTO {0} ({1}) VALUES (?, ?, ?)'.format(
                     tablename, ",".join(COLUMNS_META)
                 ))
             bound = prep_stmt.bind([int(time.time()) * 1000, self.who, original_name])
