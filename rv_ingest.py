@@ -3,6 +3,7 @@ import arrow
 import pycurl
 from rib_file import BgpDump
 from mrtparse import *
+import mrt_file
 import subprocess
 from cassandra.cluster import Cluster
 from cassandra import ReadTimeout
@@ -58,6 +59,9 @@ def convert_mrt_to_csv(input, output, forceRIB=False):
             b.bgp4mp(m, count)
         count += 1
 
+cluster = Cluster([r8_ip])
+self.session = cluster.connect('bgp6')
+
 for remotefile in RVCatalogue().listDataAfter(
     'http://archive.routeviews.org/route-views6/bgpdata/',
     arrow.get(2018, 9, 25, 0, 0)):
@@ -73,6 +77,18 @@ for remotefile in RVCatalogue().listDataAfter(
         if not (tm.hour == 0 and tm.minute == 0):
             continue 
         
+    if localfile.startswith('rib'):
+        datafile = mrt_file.ProcessedRIBFile(localfile, tmpname, session)
+    elif localfile.startswith('updates'):
+        datafile = mrt_file.ProcessedUpdatesFile(localfile, tmpname, session)
+    else:
+        sys.stderr.write('Cannot determine format: %s' % (localfile))
+        exit()
+    
+    if datafile.is_file_inserted():
+        logoutput.write('Already inserted file: %s\n' % (remotefile))
+        continue
+    
     logoutput.write('Fetching remote file: %s\n' % (remotefile))
     fetch_file(remotefile, localfile)
     logoutput.write('Fetched remote file: %s\n' % (remotefile))
@@ -84,22 +100,13 @@ for remotefile in RVCatalogue().listDataAfter(
         convert_mrt_to_csv(localfile, tmpname)
     logoutput.write('Converted to CSV\n')
     
-    # COPY can take up to 2 million entries
-    
-    if localfile.startswith('rib'):
-        insert_q = rib_copy
-    elif localfile.startswith('updates'):
-        insert_q = events_copy
-    else:
-        sys.stderr.write('Cannot determine format: %s' % (localfile))
-        exit()
-    
     logoutput.write('Beginning copy\n')
     cmd = 'cqlsh ' + r8_ip + ' -e "' + insert_q + ("'%s'" % tmpname) + copy_options + '"'
     print(cmd)
     r = subprocess.call(cmd, shell=True)
     logoutput.write('Copy finished\n')
-    
+    datafile.set_file_inserted(True)
+
     #loader_args = ['-f', '%s' % (tmpname), '-host', '130.217.250.114', '-schema', '%s' % (rib_schema)]
     
     # An alternative option to bulk load into Cassandra

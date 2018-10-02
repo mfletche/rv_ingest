@@ -9,61 +9,66 @@ import os
 # This will be used as the value for the 'who' field
 username = 'marianne'
 
-class MRTFile(Base):
-    """ Base file type.
+class ProcessedDataFile(Base):
+    """ The base class for specific types of MRT file.
+    
+    :param inputpath: A string, the path to the unprocessed MRT file.
+    :param outputpath: A string, the path to the processed output data file.
+    :param delimiter: A string, the delimiter between data columns in the
+        output file
+    :param session: A cassandra.cluster.Session object, the database session to
+        use when inserting items.
     """
     def __init__(self, inputpath, outputpath, delimiter='|', session=None):
-        """ Open input and output paths. Define the delimiter used. Connect to
-        a Cassandra session if provided.
-        """
-        
         assert inputpath
         assert outputpath
         
         self.name = os.path.basename(inputpath)
         self.outputfile = open(outputpath, 'w')
-        self.reader = Reader(inputpath)
         self.delimiter = delimiter
         self.session = session
         
     def write_line(self):
-        """ This function (in the subclasses) defines how a line is displayed
-        in the processed temporary file.
+        """ Write a line of data from the input MRT file to the output file.
         """
         pass
     
     def is_file_inserted(self):
-        """ Check the meta tables in the Cassandra database for files which
-        match the current filename. 'import_stmt' is created in the __init__
-        function of each subclass.
+        """ True if a file with the same name has already been inserted into
+        the database.
         """
-        assert self.import_query
+        assert self.import_query    # Only defined in subclasses
         assert self.session
         
         rows = self.session.execute(self.import_query)
         return (len(rows.current_rows) > 0)
         
-    def insert_into_meta_table(self):
-        """ Insert a row into the meta table in the Cassandra database for this
-        file. 'import_insert' is defined in each subclass.
+    def set_file_inserted(self, inserted):
+        """ Determine whether the database has imported the current file.
         """
+        
+        # TODO: Add case when inserted=False
         assert self.session
         global username
-        self.import_insert.format(int(time.time()) * 1000, username, self.name)
+        import_insert = self.import_insert.format(int(time.time()) * 1000, username, self.name)
         result = self.session.execute(import_insert)
     
-    def do_bulk_insert():
-        assert outputfile
-    
     def insert_into_db():
-        pass
+        """ Insert the data at the current output file into the database.
+        """
+        assert self.session
+        assert self._do_bulk_insert  # Only defined in subclasses
+        
+        # Check whether file is already imported
+        if not self.is_file_inserted():
+            self._do_bulk_insert()
+            self.set_file_inserted(True)   # Mark file as imported
         
     def __del__(self):
-        self.inputfile.close()
-        self.output#loader_args = ['-f', '%s' % (tmpname), '-host', '130.217.250.114', '-schema', '%s' % (rib_schema)]file.close()
+        self.outputfile.close()
         
 
-class RIBFile(MRTFile):
+class ProcessedRIBFile(MRTFile):
     """ Represents a RIB file. Can process it into a '|'-delimited list of
     rows.
     """
@@ -72,7 +77,7 @@ class RIBFile(MRTFile):
     schema = '"bgp6.rib(prefix,peer,peerip,snapshot,ts,aspath)"'
     
     def __init__(self, inputpath, outputpath, session=None):
-        MRTFile.__init__(self, inputpath, outputpath, session=session)
+        ProcessedDataFile.__init__(self, inputpath, outputpath, session=session)
         self.import_query = ("SELECT * FROM importedrib WHERE file='%s'" % self.name)
         self.import_insert = "INSERT INTO importedrib (ts, who, file) VALUES ({0}, '{1}', '{2}')"
         
@@ -86,17 +91,10 @@ class RIBFile(MRTFile):
             '"%s"' % self.merge_as_path()
         )
         
-    def insert_into_db(self):
-        assert self.session
-        
-        if not self.is_file_inserted():
-            self.do_bulk_insert()
-            
-        # Update "meta" table with filename
-        else:
-            raise
+    def _do_bulk_insert(self):
+        pass
 
-class UpdatesFile(MRTFile):
+class ProcessedUpdatesFile(MRTFile):
     """ Represents an Updates file. Can process it into a '|'-delimited list of
     rows.
     """
@@ -105,7 +103,7 @@ class UpdatesFile(MRTFile):
     schema = '"bgp6.bgpevents(prefix,ts,sequence,peer,peerip,type,aspath)"'
     
     def __init__(self, inputpath, outputpath, session=None):
-        MRTFile.__init__(self, inputpath, outputpath, session=session)
+        ProcessedDataFile.__init__(self, inputpath, outputpath, session=session)
         self.import_query = ("SELECT * FROM imported WHERE file='%s'" % self.name)
         self.import_insert = "INSERT INTO imported (ts, who, file) VALUES ({0}, '{1}', '{2}')"
         
@@ -118,11 +116,7 @@ class UpdatesFile(MRTFile):
             '"%s"' % self.peer_ip,
             '"%s"' % self.flag,
             '"%s"' % self.merge_as_path()
-        )   
-    
-    def insert_into_db(self):
-        assert self.session
+        )
         
-        # Check if file is in db
-        # Bulk insert
-        # Update "meta" table with filename
+    def _do_bulk_insert(self):
+        pass

@@ -342,7 +342,6 @@ def main():
         elif m.type == MRT_T['BGP4MP']:
             b.bgp4mp(m, count)
         count += 1
-    print('%s rows' % (count))
 
 if __name__ == '__main__':
     main()
