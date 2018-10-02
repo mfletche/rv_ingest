@@ -79,8 +79,10 @@ for remotefile in RVCatalogue().listDataAfter(
         
     if localfile.startswith('rib'):
         datafile = mrt_file.ProcessedRIBFile(localfile, tmpname, session)
+        insert_q = rib_copy
     elif localfile.startswith('updates'):
         datafile = mrt_file.ProcessedUpdatesFile(localfile, tmpname, session)
+        insert_q = events_copy
     else:
         sys.stderr.write('Cannot determine format: %s' % (localfile))
         exit()
