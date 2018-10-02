@@ -1,4 +1,5 @@
 from cassandra.cluster import Cluster
+import time
 
 DEFAULT_NODE_IP = '130.217.250.114'
 DEFAULT_KEYSPACE = 'bgp6'
