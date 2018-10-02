@@ -22,7 +22,7 @@ class CassInterface:
     """
     def __init__(self, ip=DEFAULT_NODE_IP, keyspace=DEFAULT_KEYSPACE,
                  who=DEFAULT_WHO):
-        cluster = Cluster()
+        cluster = Cluster([DEFAULT_NODE_IP])
         if keyspace:
             self.session = cluster.connect(keyspace)
         else:
