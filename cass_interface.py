@@ -73,7 +73,7 @@ class CassInterface:
                 'INSERT INTO {0} ({1}) VALUES (?, ?, ?) IF NOT EXISTS'.format(
                     tablename, ",".join(COLUMNS_META)
                 ))
-            bound = prep_stmt.bind([time.now() * 1000, self.who, original_name])
+            bound = prep_stmt.bind([int(time.time()) * 1000, self.who, original_name])
         else:
             prep_stmt = self.session.prepare(
                 'DELETE FROM {0} WHERE {1}=?'.format(tablename, COLUMNS_META[2])
