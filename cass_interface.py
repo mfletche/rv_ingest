@@ -35,7 +35,7 @@ class CassInterface:
             'VALUES (%s)' % (NAME_RIB, ', '.join(COLUMNS_RIB),
                              ', '.join(list('?'*len(COLUMNS_RIB))))
             )
-        self.prep_stmt_insert_bgpevents = session.prepare(
+        self.prep_stmt_insert_bgpevents = self.session.prepare(
             'INSERT INTO %s (%s) '
             'VALUES (%s)' % (NAME_BGPEVENTS, ", ".join(COLUMNS_BGPEVENTS),
                              ", ".join(list('?'*len(COLUMNS_BGPEVENTS))))
