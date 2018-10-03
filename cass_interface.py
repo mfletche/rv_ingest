@@ -108,7 +108,4 @@ class CassInterface:
         that occurred during async query executions will occur here.
         """
         for future in self.futures:
-            try:
-                results = future.result()
-            except Exception:
-                print("Operation failed.")
+            results = future.result()
