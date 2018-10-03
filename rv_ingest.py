@@ -2,6 +2,7 @@ from rv_catalogue import RVCatalogue
 from cass_interface import CassInterface
 import mrt_file
 import sys
+import arrow
 
 RIB_META_NAME = 'importedrib'
 UPDATES_META_NAME = 'imported'
