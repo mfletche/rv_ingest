@@ -58,6 +58,8 @@ for remotefile in RVCatalogue.listDataAfter(
                 db.insert_rib(line)
             else:
                 db.insert_updates(line)
+        # Check responses for the last file.
+        db.check_deferred_responses()
 
         logoutput.write('Inserted %s lines.\n' % count)
         logoutput.write('Completed ingesting file: %s\n' % localfile)

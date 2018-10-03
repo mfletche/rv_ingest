@@ -28,7 +28,7 @@ class RVCatalogue:
     # Given the name of a subdirectory, work out what month and year
     # the data within it was recorded.
     @staticmethod
-    def getMonth(self, dirname):
+    def getMonth(dirname):
         matchObj = re.match(dirPattern, dirname, re.M|re.I)
         if matchObj:
             year = int(matchObj.group(1))
@@ -37,7 +37,7 @@ class RVCatalogue:
             tm = arrow.get(year, month, 1)
             return tm
     @staticmethod
-    def getUTCTime(self, filename):
+    def getUTCTime(filename):
         """ Get the UTC time that a file was recorded by examining the filename.
         """
         matchObj = re.match(filePattern, filename, re.M|re.I)
@@ -52,7 +52,7 @@ class RVCatalogue:
             return tm
 
     @staticmethod
-    def listDataAfter(self, dir, tm):
+    def listDataAfter(dir, tm):
         """ Finds files which the filenames indicate were created at or after
         tm. Recurses through subdirectories.
         
@@ -65,11 +65,11 @@ class RVCatalogue:
             # If this directory contains RIB and UPDATES folders getMonth will
             # return None, otherwise the name of the folder will give us the
             # month and year.
-            if (self.getMonth(subdir) == None) or (self.getMonth(subdir) >= tm.replace(day=1, hour=0, minute=0)):
-                list.extend(self.listDataAfter(dir.getUrl(subdir), tm))
+            if (RVCatalogue.getMonth(subdir) == None) or (RVCatalogue.getMonth(subdir) >= tm.replace(day=1, hour=0, minute=0)):
+                list.extend(RVCatalogue.listDataAfter(dir.getUrl(subdir), tm))
         files = dir.listFiles()
         for file in files:
-            if self.getUTCTime(file) >= tm:
+            if RVCatalogue.getUTCTime(file) >= tm:
                 # Add the complete URL so it can be retrieved
                 list.append(dir.getUrl(file))
         return list

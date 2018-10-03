@@ -44,6 +44,9 @@ class CassInterface:
             'VALUES (%s)' % (NAME_BGPEVENTS, ", ".join(COLUMNS_BGPEVENTS),
                              ", ".join(list('?'*len(COLUMNS_BGPEVENTS))))
             )
+        
+        # A list of all ResponseFuture objects which have not been checked yet.
+        self.futures = []
     
     def insert_rib(self, values):
         """ Insert a line of RIB data into the database.
@@ -51,7 +54,7 @@ class CassInterface:
         """
         assert len(values) == len(COLUMNS_RIB)
         bound = self.prep_stmt_insert_rib.bind(values)
-        self.session.execute_async(bound)
+        self.futures.append(self.session.execute_async(bound))
     
     def insert_updates(self, values):
         """ Insert a line of Updates data into the database.
@@ -59,7 +62,7 @@ class CassInterface:
         """
         assert len(values) == len(COLUMNS_BGPEVENTS)
         bound = self.prep_stmt_insert_bgpevents.bind(values)
-        self.session.execute_async(bound)
+        self.futures.append(self.session.execute_async(bound))
     
     def set_file_ingested(self, original_name, ingested, tablename):
         """ Insert or delete a row in one of the 'meta' data tables which
@@ -82,7 +85,8 @@ class CassInterface:
                 'DELETE FROM {0} WHERE {1}=?'.format(tablename, COLUMNS_META[2])
                 )
             bound = prep_stmt.bind([original_name])
-        self.session.execute_async(bound)
+        # This is not asynchronous since this will be sent once per large file.
+        self.session.execute(bound)
     
     def is_file_ingested(self, original_name, tablename):
         """ Query the table to determine if a file with the given name has
@@ -98,3 +102,13 @@ class CassInterface:
         bound = prep_stmt.bind([original_name])
         results = self.session.execute(bound)
         return True if len(results.current_rows) > 0 else False
+    
+    def check_deferred_responses(self):
+        """ Checks ResponseFuture objects stored in self.futures. Exceptions
+        that occurred during async query executions will occur here.
+        """
+        for future in self.futures:
+            try:
+                results = future.result()
+            except Exception:
+                print("Operation failed.")
