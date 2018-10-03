@@ -1,6 +1,7 @@
 from rv_catalogue import RVCatalogue
 from cass_interface import CassInterface
 import mrt_file
+import os
 import sys
 import arrow
 import pycurl
