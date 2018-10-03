@@ -1,7 +1,7 @@
 from rv_catalogue import RVCatalogue
 from cass_interface import CassInterface
 import mrt_file
-from _ast import Pass
+import os
 
 RIB_META_NAME = 'importedrib'
 UPDATES_META_NAME = 'imported'
