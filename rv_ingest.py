@@ -61,13 +61,12 @@ for remotefile in RVCatalogue.listDataAfter(
             else:
                 db.insert_updates(line)
 
-        try:                
-            # Check responses for the last file. This will also block until all
-            # queries are complete.
-            db.check_deferred_responses()
-    
-            # If an exception happened, do not mark this file as complete.
-            logoutput.write('Inserted %s lines.\n' % count)
-            logoutput.write('Completed ingesting file: %s\n' % localfile)
-            db.set_file_ingested(localfile, True, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME)
-            os.remove(localfile)    # Clean up
+        # Check responses for the last file. This will also block until all
+        # queries are complete.
+        db.check_deferred_responses()
+
+        # If an exception happened, do not mark this file as complete.
+        logoutput.write('Inserted %s lines.\n' % count)
+        logoutput.write('Completed ingesting file: %s\n' % localfile)
+        db.set_file_ingested(localfile, True, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME)
+        os.remove(localfile)    # Clean up
