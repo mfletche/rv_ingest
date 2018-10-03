@@ -51,7 +51,7 @@ class CassInterface:
         """
         assert len(values) == len(COLUMNS_RIB)
         bound = self.prep_stmt_insert_rib.bind(values)
-        session.execute(bound)
+        self.session.execute(bound)
     
     def insert_updates(self, values):
         """ Insert a line of Updates data into the database.
@@ -59,7 +59,7 @@ class CassInterface:
         """
         assert len(values) == len(COLUMNS_BGPEVENTS)
         bound = self.prep_stmt_insert_bgpevents.bind(values)
-        session.execute(bound)
+        self.session.execute(bound)
     
     def set_file_ingested(self, original_name, ingested, tablename):
         """ Insert or delete a row in one of the 'meta' data tables which
