@@ -62,7 +62,7 @@ for remotefile in RVCatalogue.listDataAfter(
                 db.insert_rib(line)
             else:
                 db.insert_updates(line)
-            if count % 100000 == 0:
+            if count % 1000 == 0:
                 logoutput.write('\rEntries: %s' % count)
 
         # Write final value
