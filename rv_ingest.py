@@ -51,12 +51,16 @@ for remotefile in RVCatalogue().listDataAfter(
         
         # Parse into lines and insert them into db
         mrtfile = mrt_file.MRTExtractor(localfile)
+        count = 0
         for line in mrtfile.lines(type):
+            count += 1
+            print(line)
             if type == 'RIB':
                 db.insert_rib(line)
             else:
                 db.insert_updates(line)
 
+        logoutput.write('Inserted %s lines.\n' % count)
         logoutput.write('Completed ingesting file: %s\n' % localfile)
         db.set_file_ingested(localfile, True, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME)
         os.remove(localfile)    # Clean up
