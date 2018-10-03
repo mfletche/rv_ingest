@@ -54,7 +54,6 @@ for remotefile in RVCatalogue().listDataAfter(
         count = 0
         for line in mrtfile.lines(type):
             count += 1
-            print(line)
             if type == 'RIB':
                 db.insert_rib(line)
             else:
