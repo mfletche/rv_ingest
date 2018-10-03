@@ -94,12 +94,6 @@ class MRTParser:
         # Load first timestamp in each file into global
         if not snapshot:
             snapshot = mrt.ts
-        if mrt.type == MRT_T['TABLE_DUMP']:
-            self.parse_table_dump(mrt, count)
-        elif mrt.type == MRT_T['TABLE_DUMP_V2']:
-            self.parse_table_dump_v2(mrt)
-        elif mrt.type == MRT_T['BGP4MP']:
-            self.parse_bgp4mp(mrt, count)
         
     def bgp_attr(self, attr):
         if attr.type == BGP_ATTR_T['ORIGIN']:
@@ -229,7 +223,14 @@ class MRTParser:
     def lines(self):
         """ Generates data that would appear in each line of BGPdump ouMRTExtractortput.
         """
-        
+
+        if self.mrt.type == MRT_T['TABLE_DUMP']:
+            self.parse_table_dump(self.mrt, self.count)
+        elif self.mrt.type == MRT_T['TABLE_DUMP_V2']:
+            self.parse_table_dump_v2(self.mrt)
+        elif self.mrt.type == MRT_T['BGP4MP']:
+            self.parse_bgp4mp(self.mrt, self.count)
+
         # The subclasses must have a 'get_line' attribute defined.
         assert hasattr(self, 'get_line')
         for withdrawn in self.withdrawn:
