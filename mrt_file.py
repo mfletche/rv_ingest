@@ -262,7 +262,7 @@ class RIBExtractor(MRTParser):
         global snapshot
         """ Get a line of data for the RIB table.
         """
-        return (prefix, self.peer_as, self.peer_ip, int(snapshot) * 1000,
+        return (prefix, int(self.peer_as), self.peer_ip, int(snapshot) * 1000,
                 int(self.ts) * 1000, self.merge_as_path())
 
 class UpdatesExtractor(MRTParser):
@@ -274,7 +274,7 @@ class UpdatesExtractor(MRTParser):
         
     def get_line(self, prefix, next_hop):
         global seq
-        return (prefix, int(self.ts) * 1000, seq.get_seq(prefix, self.ts), self.peer_as, self.peer_ip, self.flag, self.merge_as_path())
+        return (prefix, int(self.ts) * 1000, seq.get_seq(prefix, self.ts), int(self.peer_as), self.peer_ip, self.flag, self.merge_as_path())
 
 def main():
     if not len(sys.argv) == 2:
