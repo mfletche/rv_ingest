@@ -58,3 +58,4 @@ for remotefile in RVCatalogue().listDataAfter(
 
         logoutput.write('Completed ingesting file: %s\n' % localfile)
         db.set_file_ingested(localfile, True, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME)
+        os.remove(localfile)    # Clean up
