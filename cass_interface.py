@@ -51,7 +51,7 @@ class CassInterface:
         """
         assert len(values) == len(COLUMNS_RIB)
         bound = self.prep_stmt_insert_rib.bind(values)
-        self.session.execute(bound)
+        self.session.execute_async(bound)
     
     def insert_updates(self, values):
         """ Insert a line of Updates data into the database.
@@ -59,7 +59,7 @@ class CassInterface:
         """
         assert len(values) == len(COLUMNS_BGPEVENTS)
         bound = self.prep_stmt_insert_bgpevents.bind(values)
-        self.session.execute(bound)
+        self.session.execute_async(bound)
     
     def set_file_ingested(self, original_name, ingested, tablename):
         """ Insert or delete a row in one of the 'meta' data tables which
@@ -82,7 +82,7 @@ class CassInterface:
                 'DELETE FROM {0} WHERE {1}=?'.format(tablename, COLUMNS_META[2])
                 )
             bound = prep_stmt.bind([original_name])
-        self.session.execute(bound)
+        self.session.execute_async(bound)
     
     def is_file_ingested(self, original_name, tablename):
         """ Query the table to determine if a file with the given name has
