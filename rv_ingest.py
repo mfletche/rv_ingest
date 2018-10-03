@@ -44,10 +44,12 @@ for remotefile in RVCatalogue.listDataAfter(
         continue
     
     if not db.is_file_ingested(localfile, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME):
-        # Do the actual fetching of the file
-        logoutput.write('Fetching remote file: %s\n' % (remotefile))
-        fetch_file(remotefile, localfile)
-        logoutput.write('Fetched remote file: %s\n' % (remotefile))
+        # File may already be here
+        if not os.path.isfile(localfile):
+            # Do the actual fetching of the file
+            logoutput.write('Fetching remote file: %s\n' % (remotefile))
+            fetch_file(remotefile, localfile)
+            logoutput.write('Fetched remote file: %s\n' % (remotefile))
         
         # Parse into lines and insert them into db
         mrtfile = mrt_file.MRTExtractor(localfile)
@@ -58,10 +60,14 @@ for remotefile in RVCatalogue.listDataAfter(
                 db.insert_rib(line)
             else:
                 db.insert_updates(line)
-        # Check responses for the last file.
-        db.check_deferred_responses()
 
-        logoutput.write('Inserted %s lines.\n' % count)
-        logoutput.write('Completed ingesting file: %s\n' % localfile)
-        db.set_file_ingested(localfile, True, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME)
-        os.remove(localfile)    # Clean up
+        try:                
+            # Check responses for the last file. This will also block until all
+            # queries are complete.
+            db.check_deferred_responses()
+    
+            # If an exception happened, do not mark this file as complete.
+            logoutput.write('Inserted %s lines.\n' % count)
+            logoutput.write('Completed ingesting file: %s\n' % localfile)
+            db.set_file_ingested(localfile, True, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME)
+            os.remove(localfile)    # Clean up
