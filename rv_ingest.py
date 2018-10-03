@@ -3,6 +3,7 @@ from cass_interface import CassInterface
 import mrt_file
 import sys
 import arrow
+import pycurl
 
 RIB_META_NAME = 'importedrib'
 UPDATES_META_NAME = 'imported'
