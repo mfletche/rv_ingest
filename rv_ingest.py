@@ -21,7 +21,7 @@ def fetch_file(url, tofile):
 db = CassInterface()
 logoutput = sys.stdout
 
-for remotefile in RVCatalogue().listDataAfter(
+for remotefile in RVCatalogue.listDataAfter(
     'http://archive.routeviews.org/route-views6/bgpdata/',
     arrow.get(2018, 9, 25, 0, 0)):
     
