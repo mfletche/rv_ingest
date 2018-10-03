@@ -236,7 +236,7 @@ class MRTParser:
                     yield route
         elif self.mrt.type == MRT_T['BGP4MP']:
             self.parse_bgp4mp(self.mrt, self.count)
-            for route in print_routes():
+            for route in self.print_routes():
                 yield route
 
     def print_routes(self):
