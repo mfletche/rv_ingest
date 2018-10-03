@@ -115,3 +115,5 @@ class CassInterface:
         """
         for future in self.futures:
             results = future.result()
+            
+        self.futures = []
