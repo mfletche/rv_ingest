@@ -19,6 +19,8 @@ COLUMNS_BGPEVENTS = ['prefix', 'ts', 'sequence', 'peer', 'peerip', 'type', 'aspa
 # but not the order.
 COLUMNS_META = ['ts', 'who', 'file']
 
+MAX_ASYNC_REQUESTS = 8
+
 class CassInterface:
     """ Acts as an interface to the bgp6 keyspace in the Cassandra database.
     This file must be changed if any of the schemas change.
@@ -55,6 +57,8 @@ class CassInterface:
         assert len(values) == len(COLUMNS_RIB)
         bound = self.prep_stmt_insert_rib.bind(values)
         self.futures.append(self.session.execute_async(bound))
+        if (len(self.futures) > max(MAX_ASYNC_REQUESTS)):
+            self.check_deferred_responses()
     
     def insert_updates(self, values):
         """ Insert a line of Updates data into the database.
@@ -63,6 +67,8 @@ class CassInterface:
         assert len(values) == len(COLUMNS_BGPEVENTS)
         bound = self.prep_stmt_insert_bgpevents.bind(values)
         self.futures.append(self.session.execute_async(bound))
+        if (len(self.futures) > max(MAX_ASYNC_REQUESTS)):
+            self.check_deferred_responses()
     
     def set_file_ingested(self, original_name, ingested, tablename):
         """ Insert or delete a row in one of the 'meta' data tables which
