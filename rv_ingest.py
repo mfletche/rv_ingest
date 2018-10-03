@@ -51,6 +51,8 @@ for remotefile in RVCatalogue.listDataAfter(
             fetch_file(remotefile, localfile)
             logoutput.write('Fetched remote file: %s\n' % (remotefile))
         
+        logoutput.write('Ingesting file: %s\n' % (localfile))
+        
         # Parse into lines and insert them into db
         mrtfile = mrt_file.MRTExtractor(localfile)
         count = 0
