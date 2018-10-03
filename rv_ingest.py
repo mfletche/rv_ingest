@@ -60,9 +60,9 @@ for remotefile in RVCatalogue.listDataAfter(
             count += 1
             if type == 'RIB':
                 db.insert_rib(line)
-                logoutput.write('\rEntries: %s' % count)
             else:
                 db.insert_updates(line)
+            logoutput.write('\rEntries: %s' % count)
 
         # Check responses for the last file. This will also block until all
         # queries are complete.
