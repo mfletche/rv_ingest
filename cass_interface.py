@@ -57,7 +57,7 @@ class CassInterface:
         assert len(values) == len(COLUMNS_RIB)
         bound = self.prep_stmt_insert_rib.bind(values)
         self.futures.append(self.session.execute_async(bound))
-        if (len(self.futures) > max(MAX_ASYNC_REQUESTS)):
+        if (len(self.futures) > MAX_ASYNC_REQUESTS):
             self.check_deferred_responses()
     
     def insert_updates(self, values):
@@ -67,7 +67,7 @@ class CassInterface:
         assert len(values) == len(COLUMNS_BGPEVENTS)
         bound = self.prep_stmt_insert_bgpevents.bind(values)
         self.futures.append(self.session.execute_async(bound))
-        if (len(self.futures) > max(MAX_ASYNC_REQUESTS)):
+        if (len(self.futures) > MAX_ASYNC_REQUESTS):
             self.check_deferred_responses()
     
     def set_file_ingested(self, original_name, ingested, tablename):
