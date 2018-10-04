@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 from rv_catalogue import RVCatalogue
 from cass_interface import CassInterface
 import mrt_file
@@ -19,7 +21,8 @@ def fetch_file(url, tofile):
         local.close()
 
 db = CassInterface()
-logoutput = sys.stdout
+log = open('log.txt', '-a')
+logoutput = log
 
 for remotefile in RVCatalogue.listDataAfter(
     'http://archive.routeviews.org/route-views6/bgpdata/',
