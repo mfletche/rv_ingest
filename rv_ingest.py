@@ -11,18 +11,45 @@ import pycurl
 RIB_META_NAME = 'importedrib'
 UPDATES_META_NAME = 'imported'
 
+db = CassInterface()
+
+try:
+    # Where logging messages will be written
+    logoutput = open('tmp.txt', 'a+')
+except IOError as e:
+    print "I/O error ({0}): {1}".format(e.errno, e.strerror)
+    logoutput = sys.stdout
+except:
+    # Unexpected error when opening file.
+    print "Unexpected error:", sys.exc_info()[0]
+    logoutput = sys.stdout
+
 def fetch_file(url, tofile):
+    """ Fetches a remote file and stores it as a local file.
+    
+    :param url: The url to fetch the file from.
+    :param tofile: The path to write the file to.
+    :return: 
+    """
     with open(tofile, 'w') as local:
         c = pycurl.Curl()
         c.setopt(c.URL, url)
         c.setopt(c.WRITEDATA, local)
-        c.perform()
-        c.close()
-        local.close()
-
-db = CassInterface()
-log = open('log.txt', '-a')
-logoutput = log
+        try:
+            c.perform()
+            
+            # Check response
+            response = c.getinfo(c.RESPONSE_CODE)
+            c.close()
+            return response
+        
+        except pycurl.error as e:
+            # https://curl.haxx.se/libcurl/c/libcurl-errors.html
+            # There doesn't seem to be much that can be done if any of these
+            # errors occur. If an error occurs with curl itself, None will be
+            # returned from this function rather than the HTTP response code.
+            errno, errstr = error
+            logoutput.write(errstr)
 
 for remotefile in RVCatalogue.listDataAfter(
     'http://archive.routeviews.org/route-views6/bgpdata/',
@@ -51,7 +78,16 @@ for remotefile in RVCatalogue.listDataAfter(
         if not os.path.isfile(localfile):
             # Do the actual fetching of the file
             logoutput.write('Fetching remote file: %s\n' % (remotefile))
-            fetch_file(remotefile, localfile)
+            response = fetch_file(remotefile, localfile)
+            if response == None:
+                # Server could not be reached or serious problem with Curl
+                # If there are connectivity problems give up and try later.
+                logoutput.write('Could not retrieve file: %s\nEXITING\n')
+                exit()
+            elif not response == 200:
+                logoutput.write('ERROR: Could not fetch file: %s\nRESPONSE CODE: %d' % (localfile, response))
+                continue
+            
             logoutput.write('Fetched remote file: %s\n' % (remotefile))
         
         logoutput.write('Ingesting file: %s\n' % (localfile))
@@ -74,3 +110,6 @@ for remotefile in RVCatalogue.listDataAfter(
         logoutput.write('Completed ingesting file: %s\n' % localfile)
         db.set_file_ingested(localfile, True, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME)
         os.remove(localfile)    # Clean up
+        
+if not logoutput == stdout:
+    logoutput.close()
