@@ -10,7 +10,17 @@ RIB_META_NAME = 'importedrib'
 UPDATES_META_NAME = 'imported'
 
 db = CassInterface()
-logoutput = sys.stdout
+
+try:
+    # Where logging messages will be written
+    logoutput = open('tmp.txt', 'a+')
+except IOError as e:
+    print "I/O error ({0}): {1}".format(e.errno, e.strerror)
+    logoutput = sys.stdout
+except:
+    # Unexpected error when opening file.
+    print "Unexpected error:", sys.exc_info()[0]
+    logoutput = sys.stdout
 
 def fetch_file(url, tofile):
     """ Fetches a remote file and stores it as a local file.
@@ -58,7 +68,7 @@ for remotefile in RVCatalogue.listDataAfter(
     elif localfile.startswith('updates'):
         type = 'Updates'
     else:
-        sys.stderr.write('Cannot determine format: %s' % (localfile))
+        logoutput.write('Cannot determine format: %s' % (localfile))
         continue
     
     if not db.is_file_ingested(localfile, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME):
@@ -98,3 +108,6 @@ for remotefile in RVCatalogue.listDataAfter(
         logoutput.write('Completed ingesting file: %s\n' % localfile)
         db.set_file_ingested(localfile, True, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME)
         os.remove(localfile)    # Clean up
+        
+if not logoutput == sys.stdout:
+    logoutput.close()
