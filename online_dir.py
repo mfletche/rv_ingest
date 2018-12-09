@@ -9,7 +9,7 @@ Author: Marianne Fletcher
 """
 
 import pycurl
-from StringIO import StringIO
+import io
 from bs4 import BeautifulSoup
 
 baseUrl = 'http://archive.routeviews.org/route-views6/bgpdata/'
@@ -39,20 +39,20 @@ class OnlineDir:
         """ Fetch the HTML describing the online directory.
         """
         # Use Curl to fetch resource
-        buffer = StringIO()
+        buffer = io.BytesIO()
         c = pycurl.Curl()
-        c.setopt(c.URL, self.url)
-        c.setopt(c.WRITEDATA, buffer)
+        c.setopt(pycurl.URL, self.url)
+        c.setopt(pycurl.WRITEFUNCTION, buffer.write)
         c.perform()
     
         # Check HTTP response code indicates OK
         if (c.getinfo(c.RESPONSE_CODE) != 200):
             print(str(c.RESPONSE_CODE) + ' error: Could not fetch ' + url)
-            return# which contains an image with alt-text. This alt-text can be use
+            return
     
         c.close()
     
-        self.body = buffer.getvalue()
+        self.body = buffer.getvalue().decode('utf-8')
         buffer.close()
         return self.body
     

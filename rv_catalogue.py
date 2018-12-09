@@ -58,7 +58,7 @@ class RVCatalogue:
         
         tm - Must be UTC
         """
-        list = []
+        results = []
         dir = OnlineDir(dir)
         subdirs = dir.listSubdirs()
         for subdir in subdirs:
@@ -66,10 +66,11 @@ class RVCatalogue:
             # return None, otherwise the name of the folder will give us the
             # month and year.
             if (RVCatalogue.getMonth(subdir) == None) or (RVCatalogue.getMonth(subdir) >= tm.replace(day=1, hour=0, minute=0)):
-                list.extend(RVCatalogue.listDataAfter(dir.getUrl(subdir), tm))
+                results.extend(RVCatalogue.listDataAfter(dir.getUrl(subdir), tm))
         files = dir.listFiles()
+        files = sorted(files, key=lambda x: RVCatalogue.getUTCTime(x))
         for file in files:
             if RVCatalogue.getUTCTime(file) >= tm:
                 # Add the complete URL so it can be retrieved
-                list.append(dir.getUrl(file))
-        return list
+                results.append(dir.getUrl(file))
+        return results

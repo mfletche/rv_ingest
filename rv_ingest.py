@@ -1,26 +1,59 @@
 from rv_catalogue import RVCatalogue
-from cass_interface import CassInterface
+import bgp6_db
 import mrt_file
 import os
 import sys
 import arrow
 import pycurl
+import time_uuid
+import cassandra.concurrent
+import io
+from tqdm import tqdm
+from mrtparse import *
+import datetime
 
-RIB_META_NAME = 'importedrib'
-UPDATES_META_NAME = 'imported'
+db = bgp6_db.Bgp6Database()
 
-db = CassInterface()
-
-try:
+#try:
     # Where logging messages will be written
-    logoutput = open('tmp.txt', 'a+')
-except IOError as e:
-    print "I/O error ({0}): {1}".format(e.errno, e.strerror)
-    logoutput = sys.stdout
-except:
+#    logoutput = open('tmp.txt', 'a+')
+#except IOError as e:
+#    print("I/O error ({0}): {1}".format(e.errno, e.strerror))
+logoutput = sys.stdout
+#except:
     # Unexpected error when opening file.
-    print "Unexpected error:", sys.exc_info()[0]
-    logoutput = sys.stdout
+#    print("Unexpected error:", sys.exc_info()[0])
+#    logoutput = sys.stdout
+
+def update_to_bgp_event_row(update):
+    event_timestamp = update.time
+    event_datetime = datetime.datetime.fromtimestamp(event_timestamp)
+    
+    row = bgp6_db.BgpEventRow(
+        prefix=update.prefix,
+        time=time_uuid.TimeUUID.with_timestamp(event_timestamp),
+        year=event_datetime.year,
+        month=event_datetime.month,
+        peer=update.peer_ip,
+        asn=update.peer_as,
+        path=update.as_path,
+        type=update.type,
+        seq=None
+        )
+    
+    return row
+
+def update_to_rib_row(update, snapshot_datetime):
+    row = bgp6_db.RibRow(
+        prefix=update.prefix,
+        year=snapshot_datetime.year,
+        snapshot=snapshot_datetime,
+        peer=update.peer_ip,
+        asn=update.peer_as,
+        path=update.as_path,
+        ts=update.time)
+    
+    return row
 
 def fetch_file(url, tofile):
     """ Fetches a remote file and stores it as a local file.
@@ -29,33 +62,27 @@ def fetch_file(url, tofile):
     :param tofile: The path to write the file to.
     :return: 
     """
-    with open(tofile, 'w') as local:
+    with open(tofile, 'wb') as local:
+        
         c = pycurl.Curl()
         c.setopt(c.URL, url)
-        c.setopt(c.WRITEDATA, local)
-        try:
-            c.perform()
-            
-            # Check response
-            response = c.getinfo(c.RESPONSE_CODE)
-            c.close()
-            return response
+        c.setopt(c.WRITEFUNCTION, local.write)
+        c.perform()
         
-        except pycurl.error as e:
-            # https://curl.haxx.se/libcurl/c/libcurl-errors.html
-            # There doesn't seem to be much that can be done if any of these
-            # errors occur. If an error occurs with curl itself, None will be
-            # returned from this function rather than the HTTP response code.
-            errno, errstr = error
-            logoutput.write(errstr)
+        # Check response
+        response = c.getinfo(c.RESPONSE_CODE)
+                    
+        c.close()
+        return response
+        
 
-for remotefile in RVCatalogue.listDataAfter(
+for remotefile in tqdm(RVCatalogue.listDataAfter(
     'http://archive.routeviews.org/route-views6/bgpdata/',
-    arrow.get(2018, 9, 25, 0, 0)):
+    arrow.get(2018, 9, 25, 0, 0))):
     
     # Work out filename
     localfile = remotefile.rsplit('/', 1)[-1]
-    localfile = localfile.encode('utf-8')   # localfile was a Unicode string
+    #localfile = localfile.encode('utf-8')   # localfile was a Unicode string
     
     if localfile.startswith('rib'):
         # Only fetch RIB files which have a midnight timestamp
@@ -71,7 +98,8 @@ for remotefile in RVCatalogue.listDataAfter(
         logoutput.write('Cannot determine format: %s' % (localfile))
         continue
     
-    if not db.is_file_ingested(localfile, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME):
+    if not db.is_file_ingested(localfile, bgp6_db.IMPORTED_RIB_TABLE_NAME if type == 'RIB'
+                               else bgp6_db.IMPORTED_UPDATES_TABLE_NAME):
         # File may already be here
         if not os.path.isfile(localfile):
             # Do the actual fetching of the file
@@ -90,23 +118,52 @@ for remotefile in RVCatalogue.listDataAfter(
         
         logoutput.write('Ingesting file: %s\n' % (localfile))
         
-        # Parse into lines and insert them into db
-        mrtfile = mrt_file.MRTExtractor(localfile)
+        # Queue for big concurrent insertion operation
+        rib_insert_queue = []
+        updates_insert_queue = []
+        
+        d = Reader(localfile)
         count = 0
-        for line in mrtfile.lines(type):
+        for mrt in d:
+            lines = []
+            mrt = mrt.mrt
+            if mrt.err:
+                continue
+            bgpdump = mrt_file.BgpDump()
+            if mrt.type == MRT_T['TABLE_DUMP']:
+                lines += bgpdump.td(mrt, count)
+            elif mrt.type == MRT_T['TABLE_DUMP_V2']:
+                lines += bgpdump.td_v2(mrt)
+            elif mrt.type == MRT_T['BGP4MP']:
+                lines += bgpdump.bgp4mp(mrt, count)
             count += 1
-            if type == 'RIB':
-                db.insert_rib(line)
-            else:
-                db.insert_updates(line)
-            if count % 1000 == 0:
-                logoutput.write('\rEntries: %s' % count)
+            
+            for ln in lines:
+                if type == 'RIB':
+                    rib_insert_queue.append(update_to_rib_row(ln, tm.datetime))
+                else:
+                    updates_insert_queue.append(update_to_bgp_event_row(ln))
 
-        # Write final value
-        logoutput.write('\rEntries: %s\n' % count)
+        try:
+            rib_len = len(rib_insert_queue)
+            if rib_len:
+                print('Inserting %d RIB entries...' % (rib_len))
+            cassandra.concurrent.execute_concurrent_with_args(db.session, db.prep_stmt_insert_rib, rib_insert_queue)
+            
+            event_len = len(updates_insert_queue)
+            if event_len:
+                print('Inserting %d UPDATES entries...' % (event_len))
+            cassandra.concurrent.execute_concurrent_with_args(db.session, db.prep_stmt_insert_bgpevents, updates_insert_queue)
 
-        logoutput.write('Completed ingesting file: %s\n' % localfile)
-        db.set_file_ingested(localfile, True, RIB_META_NAME if type == 'RIB' else UPDATES_META_NAME)
+            # Write final value
+            logoutput.write('\rEntries: %s\n' % count)
+    
+            logoutput.write('Completed ingesting file: %s\n' % localfile)
+            db.set_file_ingested(localfile, True, bgp6_db.IMPORTED_RIB_TABLE_NAME if type == 'RIB'
+                                 else bgp6_db.IMPORTED_UPDATES_TABLE_NAME)
+        except Exception as exc:
+            exc.print_stack_trace()
+        
         os.remove(localfile)    # Clean up
         
 if not logoutput == sys.stdout:

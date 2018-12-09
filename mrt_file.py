@@ -1,101 +1,266 @@
-""" Represents each file type present on the routeview archive and contains
-functions to INSERT them into a Cassandra db appropriately.
+#!/usr/bin/env python
+'''
+mrt2bgpdump.py - a script to convert MRT format to bgpdump format.
+Copyright (C) 2018 Tetsumune KISO
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+    http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+Authors:
+    Tetsumune KISO <t2mune@gmail.com>
+    Yoshiyuki YAMAUCHI <info@greenhippo.co.jp>
+    Nobuhiro ITOU <js333123@gmail.com>
+'''
 
-Modified version of mrt2bgpdump.py example from mrtparse
-"""
-
+import sys, argparse, copy
+from datetime import *
 from mrtparse import *
-import time
-import os
-import copy
 
-# This will be used as the value for the 'who' field
-username = 'marianne'
 peer = None
 
-class SeqGenerator:
-    """
-    Class that will determine the sequence number of a line required for
-    updates.
-    """
+def parse_args():
+    p = argparse.ArgumentParser(
+        description='This script converts to bgpdump format.')
+    p.add_argument(
+        '-m', dest='verbose', default=False, action='store_true',
+        help='one-line per entry with unix timestamps')
+    p.add_argument(
+        '-M', dest='verbose', action='store_false',
+        help='one-line per entry with human readable timestamps(default format)')
+    p.add_argument(
+        '-O', dest='output', default=sys.stdout, nargs='?', metavar='file',
+        type=argparse.FileType('w'),
+        help='output to a specified file')
+    p.add_argument(
+        '-s', dest='output', action='store_const', const=sys.stdout,
+        help='output to STDOUT(default output)')
+    p.add_argument(
+        '-v', dest='output', action='store_const', const=sys.stderr,
+        help='output to STDERR')
+    p.add_argument(
+        '-t', dest='ts_format', default='dump', choices=['dump', 'change'],
+        help='timestamps for RIB dumps reflect the time of the dump \
+            or the last route modification(default: dump)')
+    p.add_argument(
+        '-p', dest='pkt_num', default=False, action='store_true',
+        help='show packet index at second position')
+    p.add_argument(
+        'path_to_file',
+        help='specify path to MRT format file')
+    return p.parse_args()
+
+class BgpDump:
+    __slots__ = [
+        'verbose', 'output', 'ts_format', 'type', 'num', 'ts',
+        'org_time', 'flag', 'peer_ip', 'peer_as', 'nlri', 'withdrawn',
+        'as_path', 'origin', 'next_hop', 'local_pref', 'med', 'comm',
+        'atomic_aggr', 'aggr', 'as4_path', 'as4_aggr', 'old_state', 'new_state',
+    ]
     
+    class Update:
+        
+        def __init__(self):
+            self.type = None
+            self.time = None
+            self.flag = None
+            self.peer_ip = None
+            self.peer_as = None
+            self.prefix = None
+            self.as_path = None
+            self.origin = None
+            self.next_hop = None
+            self.local_pref = None
+            self.med = None
+            self.comm = None
+            self.atomic_aggr = None
+            self.aggr = None
+
     def __init__(self):
-        self.dict = {}
-    
-    def get_seq(self, prefix, ts):
-        """ Gets the sequence number for an update message. Calling this method
-        will change its result on subsequent calls.
-        """
-        entry = self.dict.get(prefix)
-        
-        # If the prefix is new, or the timestamp has changed
-        if not entry or entry[0] != ts:
-            # Create entry with next seq number
-            self.dict[prefix] = [ts, 1]
-            return 0
-        else:
-            seq = entry[1]
-            entry[1] += 1
-            return seq
-
-# These globals store information that must exist for longer than the parsing
-# of a single record in the MRT file, but that also must be included in the
-# output of the get_lines() function. They need to be reset at the beginning
-# of each file read.
-snapshot = None # Time of table dump
-seq = SeqGenerator()
-
-class MRTExtractor:
-    """ The base class for specific types of MRT file. Extracts all data that
-    might be required for subclasses.
-    
-    :param input: An object with a 'read' attribute or str containing the path
-    to the MRT file.
-    """
-    def __init__(self, input):
-        global seq, snapshot
-        # Following is required by Reader class
-        assert hasattr(input, 'read') or isinstance(input, str)
-        self.reader = Reader(input)
-        
-        # Sequence and snapshot must be reset for each file
-        seq = SeqGenerator()
-        snapshot = None
-        
-    def lines(self, type):
-        count = 0
-        linecount = 0
-        for m in self.reader:
-            m = m.mrt
-            if m.err:
-                continue
-            if type == 'RIB':
-                p = RIBExtractor(m, count=count)
-            elif type == 'Updates':
-                p = UpdatesExtractor(m, count=count)
-            else:
-                sys.stderr.write('Error: Unsupported MRT line format.\n')
-                return
-            for line in p.lines():
-                linecount += 1
-                yield line
-
-class MRTParser:
-    """ A parser for MRT entries generated by MRTExtractor.mrt().
-    """
-    def __init__(self, mrt, count=None):
-        global snapshot
-        self.mrt = mrt
-        self.count = count
+        '''
+        self.verbose = args.verbose
+        self.output = args.output
+        self.ts_format = args.ts_format
+        self.pkt_num = args.pkt_num
+        '''
+        self.type = ''
+        self.num = 0
+        self.ts = 0
+        self.org_time = 0
+        self.flag = ''
+        self.peer_ip = ''
+        self.peer_as = 0
         self.nlri = []
         self.withdrawn = []
-        self.as4_path = []
         self.as_path = []
-        
-        # Load first timestamp in each file into global
-        if not snapshot:
-            snapshot = mrt.ts
-        
+        self.origin = ''
+        self.next_hop = []
+        self.local_pref = 0
+        self.med = 0
+        self.comm = ''
+        self.atomic_aggr = 'NAG'
+        self.aggr = ''
+        self.as4_path = []
+        self.as4_aggr = ''
+        self.old_state = 0
+        self.new_state = 0
+
+    def get_line(self, prefix, next_hop):
+        #if self.ts_format == 'dump':
+        d = datetime.fromtimestamp(self.ts)
+        #else:
+        #    d = self.org_time
+
+        #if self.verbose:
+        #    d = str(d)
+        #else:
+        #    d = datetime.utcfromtimestamp(d).\
+        #        strftime('%m/%d/%y %H:%M:%S')
+
+        #if self.pkt_num == True:
+        #    d = '%d|%s' % (self.num, d)
+
+        if self.flag == 'B' or self.flag == 'A':
+            #self.output.write('%s|%s|%s|%s|%s|%s|%s|%s' % (
+            #    self.type, d, self.flag, self.peer_ip, self.peer_as, prefix,
+            #    self.merge_as_path(), self.origin))
+            #if self.verbose == True:
+            #    self.output.write('|%s|%d|%d|%s|%s|%s|\n' % (
+            #        next_hop, self.local_pref, self.med, self.comm,
+            #        self.atomic_aggr, self.merge_aggr()))
+            #else:
+            #    self.output.write('\n')
+            line = BgpDump.Update()
+            line.type=self.type
+            line.time=d
+            line.flag=self.flag
+            line.peer_ip=self.peer_ip
+            line.peer_as=int(self.peer_as)
+            line.prefix=prefix
+            line.as_path=self.merge_as_path()
+            line.origin=self.origin
+            line.next_hop=next_hop
+            line.local_pref=self.local_pref
+            line.med=self.med
+            line.comm=self.comm
+            line.atomic_aggr=self.atomic_aggr
+            line.aggr=self.merge_aggr()
+        elif self.flag == 'W':
+            #self.output.write('%s|%s|%s|%s|%s|%s\n' % (
+            #    self.type, d, self.flag, self.peer_ip, self.peer_as,
+            #    prefix))
+            line = BgpDump.Update()
+            line.type=self.type,
+            line.time=d
+            line.flag=self.flag
+            line.peer_ip=self.peer_ip
+            line.peer_as=int(self.peer_as)
+            line.prefix=prefix
+        elif self.flag == 'STATE':
+            #self.output.write('%s|%s|%s|%s|%s|%d|%d\n' % (
+            #    self.type, d, self.flag, self.peer_ip, self.peer_as,
+            #    self.old_state, self.new_state))
+            line = BgpDump.State()
+            line.type=self.type
+            line.flag=self.flag
+            line.peer_ip=self.peer_ip
+            line.peer_as=int(self.peer_as)
+            line.old_state=self.old_state
+            line.new_state=self.new_state
+            
+        return line
+
+    def get_routes(self):
+        routes = []
+        for withdrawn in self.withdrawn:
+            if self.type == 'BGP4MP':
+                self.flag = 'W'
+            routes.append(self.get_line(withdrawn, ''))
+        for nlri in self.nlri:
+            if self.type == 'BGP4MP':
+                self.flag = 'A'
+            for next_hop in self.next_hop:
+                routes.append(self.get_line(nlri, next_hop))
+                
+        return routes
+
+    def td(self, m, count):
+        self.type = 'TABLE_DUMP'
+        self.flag = 'B'
+        self.ts = m.ts
+        self.num = count
+        self.org_time = m.td.org_time
+        self.peer_ip = m.td.peer_ip
+        self.peer_as = m.td.peer_as
+        self.nlri.append('%s/%d' % (m.td.prefix, m.td.plen))
+        for attr in m.td.attr:
+            self.bgp_attr(attr)
+        return self.get_routes()
+
+    def td_v2(self, m):
+        global peer
+        self.type = 'TABLE_DUMP2'
+        self.flag = 'B'
+        self.ts = m.ts
+        if m.subtype == TD_V2_ST['PEER_INDEX_TABLE']:
+            peer = copy.copy(m.peer.entry)
+            return []
+        elif (m.subtype == TD_V2_ST['RIB_IPV4_UNICAST']
+            or m.subtype == TD_V2_ST['RIB_IPV4_MULTICAST']
+            or m.subtype == TD_V2_ST['RIB_IPV6_UNICAST']
+            or m.subtype == TD_V2_ST['RIB_IPV6_MULTICAST']):
+            self.num = m.rib.seq
+            self.nlri.append('%s/%d' % (m.rib.prefix, m.rib.plen))
+            for entry in m.rib.entry:
+                self.org_time = entry.org_time
+                self.peer_ip = peer[entry.peer_index].ip
+                self.peer_as = peer[entry.peer_index].asn
+                self.as_path = []
+                self.origin = ''
+                self.next_hop = []
+                self.local_pref = 0
+                self.med = 0
+                self.comm = ''
+                self.atomic_aggr = 'NAG'
+                self.aggr = ''
+                self.as4_path = []
+                self.as4_aggr = ''
+                for attr in entry.attr:
+                    self.bgp_attr(attr)
+                return self.get_routes()
+
+    def bgp4mp(self, m, count):
+        self.type = 'BGP4MP'
+        self.ts = m.ts
+        self.num = count
+        self.org_time = m.ts
+        self.peer_ip = m.bgp.peer_ip
+        self.peer_as = m.bgp.peer_as
+        if (m.subtype == BGP4MP_ST['BGP4MP_STATE_CHANGE']
+            or m.subtype == BGP4MP_ST['BGP4MP_STATE_CHANGE_AS4']):
+            self.flag = 'STATE'
+            self.old_state = m.bgp.old_state
+            self.new_state = m.bgp.new_state
+            self.get_line([], '')
+        elif (m.subtype == BGP4MP_ST['BGP4MP_MESSAGE']
+            or m.subtype == BGP4MP_ST['BGP4MP_MESSAGE_AS4']
+            or m.subtype == BGP4MP_ST['BGP4MP_MESSAGE_LOCAL']
+            or m.subtype == BGP4MP_ST['BGP4MP_MESSAGE_AS4_LOCAL']):
+            if m.bgp.msg.type != BGP_MSG_T['UPDATE']:
+                return
+            for attr in m.bgp.msg.attr:
+                self.bgp_attr(attr)
+            for withdrawn in m.bgp.msg.withdrawn:
+                self.withdrawn.append(
+                    '%s/%d' % (withdrawn.prefix, withdrawn.plen))
+            for nlri in m.bgp.msg.nlri:
+                self.nlri.append('%s/%d' % (nlri.prefix, nlri.plen))
+            return self.get_routes()
+
     def bgp_attr(self, attr):
         if attr.type == BGP_ATTR_T['ORIGIN']:
             self.origin = ORIGIN_T[attr.origin]
@@ -152,106 +317,6 @@ class MRTParser:
         elif attr.type == BGP_ATTR_T['AS4_AGGREGATOR']:
             self.as4_aggr = '%s %s' % (attr.as4_aggr['asn'], attr.as4_aggr['id'])
 
-    def parse_table_dump(self):
-        self.type = 'TABLE_DUMP'
-        self.flag = 'B'
-        self.ts = m.ts
-        self.num = count
-        self.org_time = m.td.org_time
-        self.peer_ip = m.td.peer_ip
-        self.peer_as = m.td.peer_as
-        self.nlri.append('%s/%d' % (m.td.prefix, m.td.plen))
-        for attr in m.td.attr:
-            self.bgp_attr(attr)
-            
-    def parse_table_dump_v2(self, m):
-        global peer
-        self.type = 'TABLE_DUMP2'
-        self.flag = 'B'
-        self.ts = m.ts
-        if m.subtype == TD_V2_ST['PEER_INDEX_TABLE']:
-            peer = copy.copy(m.peer.entry)
-        elif (m.subtype == TD_V2_ST['RIB_IPV4_UNICAST']
-            or m.subtype == TD_V2_ST['RIB_IPV4_MULTICAST']
-            or m.subtype == TD_V2_ST['RIB_IPV6_UNICAST']
-            or m.subtype == TD_V2_ST['RIB_IPV6_MULTICAST']):
-            self.num = m.rib.seq
-            self.nlri.append('%s/%d' % (m.rib.prefix, m.rib.plen))
-            for entry in m.rib.entry:
-                self.org_time = entry.org_time
-                self.peer_ip = peer[entry.peer_index].ip
-                self.peer_as = peer[entry.peer_index].asn
-                self.as_path = []
-                self.origin = ''
-                self.next_hop = []
-                self.local_pref = 0
-                self.med = 0
-                self.comm = ''
-                self.atomic_aggr = 'NAG'
-                self.aggr = ''
-                self.as4_path = []
-                self.as4_aggr = ''
-                for attr in entry.attr:
-                    self.bgp_attr(attr)
-                yield True
-                    
-    def parse_bgp4mp(self, m, count):
-        self.type = 'BGP4MP'
-        self.ts = m.ts
-        self.num = count
-        self.org_time = m.ts
-        self.peer_ip = m.bgp.peer_ip
-        self.peer_as = m.bgp.peer_as
-        if (m.subtype == BGP4MP_ST['BGP4MP_STATE_CHANGE']
-            or m.subtype == BGP4MP_ST['BGP4MP_STATE_CHANGE_AS4']):
-            self.flag = 'STATE'
-            self.old_state = m.bgp.old_state
-            self.new_state = m.bgp.new_state
-            self.print_line([], '')
-        elif (m.subtype == BGP4MP_ST['BGP4MP_MESSAGE']
-            or m.subtype == BGP4MP_ST['BGP4MP_MESSAGE_AS4']
-            or m.subtype == BGP4MP_ST['BGP4MP_MESSAGE_LOCAL']
-            or m.subtype == BGP4MP_ST['BGP4MP_MESSAGE_AS4_LOCAL']):
-            if m.bgp.msg.type != BGP_MSG_T['UPDATE']:
-                return
-            for attr in m.bgp.msg.attr:
-                self.bgp_attr(attr)
-            for withdrawn in m.bgp.msg.withdrawn:
-                self.withdrawn.append(
-                    '%s/%d' % (withdrawn.prefix, withdrawn.plen))
-            for nlri in m.bgp.msg.nlri:
-                self.nlri.append('%s/%d' % (nlri.prefix, nlri.plen))
-                
-    def lines(self):
-        """ Generates data that would appear in each line of BGPdump ouMRTExtractortput.
-        """
-
-        if self.mrt.type == MRT_T['TABLE_DUMP']:
-            self.parse_table_dump(self.mrt, self.count)
-            for route in self.print_routes():
-                yield route
-        elif self.mrt.type == MRT_T['TABLE_DUMP_V2']:
-            for state in self.parse_table_dump_v2(self.mrt):
-                for route in self.print_routes():
-                    yield route
-        elif self.mrt.type == MRT_T['BGP4MP']:
-            self.parse_bgp4mp(self.mrt, self.count)
-            for route in self.print_routes():
-                yield route
-
-    def print_routes(self):
-        # The subclasses must have a 'get_line' attribute defined.
-        assert hasattr(self, 'get_line')
-        for withdrawn in self.withdrawn:
-            if self.type == 'BGP4MP':
-                self.flag = 'W'
-            yield self.get_line(withdrawn, '')
-        for nlri in self.nlri:
-            if self.type == 'BGP4MP':
-                self.flag = 'A'
-            for next_hop in self.next_hop:
-                yield self.get_line(nlri, next_hop)
-                
     def merge_as_path(self):
         if len(self.as4_path):
             n = len(self.as_path) - len(self.as4_path)
@@ -259,49 +324,28 @@ class MRTParser:
         else:
             return ' '.join(self.as_path)
 
-# These subclasses will extract specific data fields from the MRTExtractor and
-# return them in a tuple.
-
-class RIBExtractor(MRTParser):
-    """ Represents a RIB file.
-    """    
-    def __init__(self, mrt, count=None):
-        MRTParser.__init__(self, mrt, count)
+    def merge_aggr(self):
+        if len(self.as4_aggr):
+            return self.as4_aggr
+        else:
+            return self.aggr
         
-    def get_line(self, prefix, next_hop):
-        global snapshot
-        """ Get a line of data for the RIB table.
-        """
-        return (prefix, int(self.peer_as), self.peer_ip, int(snapshot) * 1000,
-                int(self.ts) * 1000, self.merge_as_path())
-
-class UpdatesExtractor(MRTParser):
-    """ Represents an Updates file.
-    """
-    
-    def __init__(self, mrt, count=None):
-        MRTParser.__init__(self, mrt, count)
-        
-    def get_line(self, prefix, next_hop):
-        global seq
-        return (prefix, int(self.ts) * 1000, seq.get_seq(prefix, self.ts), int(self.peer_as), self.peer_ip, self.flag, self.merge_as_path())
-
 def main():
-    if not len(sys.argv) == 2:
-        sys.stderr.write('Not enough arguments.\n')
-        return
-    ext = MRTExtractor(sys.argv[1])
-    if (sys.argv[1].startswith('rib')):
-        type = 'RIB'
-    elif (sys.argv[1].startswith('updates')):
-        type = 'Updates'
-    else:
-        sys.stderr.write('Unrecognized file type.\n')
-        return
-    
-    for line in ext.lines(type):
-        print(line)
-        
+    args = parse_args()
+    d = Reader(args.path_to_file)
+    count = 0
+    for m in d:
+        m = m.mrt
+        if m.err:
+            continue
+        b = BgpDump(args)
+        if m.type == MRT_T['TABLE_DUMP']:
+            b.td(m, count)
+        elif m.type == MRT_T['TABLE_DUMP_V2']:
+            b.td_v2(m)
+        elif m.type == MRT_T['BGP4MP']:
+            b.bgp4mp(m, count)
+        count += 1
+
 if __name__ == '__main__':
     main()
-    
