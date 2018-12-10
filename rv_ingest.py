@@ -5,12 +5,13 @@ import os
 import sys
 import arrow
 import pycurl
-import time_uuid
 import cassandra.concurrent
+import cassandra.util
 import io
 from tqdm import tqdm
 from mrtparse import *
 import datetime
+import traceback
 
 db = bgp6_db.Bgp6Database()
 
@@ -26,19 +27,16 @@ logoutput = sys.stdout
 #    logoutput = sys.stdout
 
 def update_to_bgp_event_row(update):
-    event_timestamp = update.time
-    event_datetime = datetime.datetime.fromtimestamp(event_timestamp)
-    
     row = bgp6_db.BgpEventRow(
         prefix=update.prefix,
-        time=time_uuid.TimeUUID.with_timestamp(event_timestamp),
-        year=event_datetime.year,
-        month=event_datetime.month,
+        time=update.time,
+        year=update.time.year,
+        month=update.time.month,
         peer=update.peer_ip,
         asn=update.peer_as,
         path=update.as_path,
         type=update.type,
-        seq=None
+        seq=update.seq
         )
     
     return row
@@ -91,14 +89,14 @@ for remotefile in tqdm(RVCatalogue.listDataAfter(
             continue 
         
     if localfile.startswith('rib'):
-        type = 'RIB'
+        file_type = 'RIB'
     elif localfile.startswith('updates'):
-        type = 'Updates'
+        file_type = 'Updates'
     else:
         logoutput.write('Cannot determine format: %s' % (localfile))
         continue
     
-    if not db.is_file_ingested(localfile, bgp6_db.IMPORTED_RIB_TABLE_NAME if type == 'RIB'
+    if not db.is_file_ingested(localfile, bgp6_db.IMPORTED_RIB_TABLE_NAME if file_type == 'RIB'
                                else bgp6_db.IMPORTED_UPDATES_TABLE_NAME):
         # File may already be here
         if not os.path.isfile(localfile):
@@ -139,30 +137,34 @@ for remotefile in tqdm(RVCatalogue.listDataAfter(
             count += 1
             
             for ln in lines:
-                if type == 'RIB':
+                if file_type == 'RIB':
                     rib_insert_queue.append(update_to_rib_row(ln, tm.datetime))
                 else:
                     updates_insert_queue.append(update_to_bgp_event_row(ln))
 
-        try:
-            rib_len = len(rib_insert_queue)
-            if rib_len:
-                print('Inserting %d RIB entries...' % (rib_len))
-            cassandra.concurrent.execute_concurrent_with_args(db.session, db.prep_stmt_insert_rib, rib_insert_queue)
-            
-            event_len = len(updates_insert_queue)
-            if event_len:
-                print('Inserting %d UPDATES entries...' % (event_len))
-            cassandra.concurrent.execute_concurrent_with_args(db.session, db.prep_stmt_insert_bgpevents, updates_insert_queue)
+        #try:
+        rib_len = len(rib_insert_queue)
+        if rib_len:
+            print('Inserting %d RIB entries...' % (rib_len))
+            cassandra.concurrent.execute_concurrent_with_args(db.session, db.prep_stmt_insert_rib, rib_insert_queue,
+                                                              concurrency=400)
+        
+        event_len = len(updates_insert_queue)
+        if event_len:
+            print('Inserting %d UPDATES entries...' % (event_len))
+            for row in updates_insert_queue:
+                db.session.execute(db.prep_stmt_insert_bgpevents, row)
+            #cassandra.concurrent.execute_concurrent_with_args(db.session, db.prep_stmt_insert_bgpevents, updates_insert_queue)
 
-            # Write final value
-            logoutput.write('\rEntries: %s\n' % count)
-    
-            logoutput.write('Completed ingesting file: %s\n' % localfile)
-            db.set_file_ingested(localfile, True, bgp6_db.IMPORTED_RIB_TABLE_NAME if type == 'RIB'
-                                 else bgp6_db.IMPORTED_UPDATES_TABLE_NAME)
-        except Exception as exc:
-            exc.print_stack_trace()
+        # Write final value
+        logoutput.write('\rEntries: %s\n' % (count))
+
+        logoutput.write('Completed ingesting file: %s\n' % (localfile))
+        db.set_file_ingested(localfile, True, bgp6_db.IMPORTED_RIB_TABLE_NAME if file_type == 'RIB'
+                             else bgp6_db.IMPORTED_UPDATES_TABLE_NAME)
+#       except Exception as exc:
+#            exc_info = sys.exc_info()
+#            traceback.print_exception(*exc_info)
         
         os.remove(localfile)    # Clean up
         

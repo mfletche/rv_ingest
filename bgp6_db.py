@@ -38,7 +38,7 @@ RIB_TABLE_CREATE = ('CREATE TABLE IF NOT EXISTS {} ('
                     'asn int, '
                     'path text, '
                     'ts timestamp, '
-                    'PRIMARY KEY ((prefix, year), snapshot, peer)'
+                    'PRIMARY KEY ((prefix, year), snapshot, peer, path)'
                     ') WITH CLUSTERING ORDER BY (snapshot DESC, peer ASC);')
 COLUMNS_RIB = ['prefix', 'year', 'snapshot', 'peer', 'asn', 'path', 'ts']
 RibRow = recordclass('RibRow', COLUMNS_RIB)
@@ -46,6 +46,15 @@ RibRow = recordclass('RibRow', COLUMNS_RIB)
 RIB_INSERT = ('INSERT INTO %s (%s) '
             'VALUES (%s)' % (RIB_TABLE_NAME, ', '.join(COLUMNS_RIB),
                              ', '.join(list('?'*len(COLUMNS_RIB)))))
+
+''' Using a SASIIndex allows selecting snapshots using < or > comparison
+operators.
+'''
+RIB_SNAPSHOT_INDEX = "CREATE CUSTOM INDEX rib_snapshot ON {} (snapshot) USING " \
+    "'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = { " \
+    "'mode': 'SPARSE'};".format(RIB_TABLE_NAME)
+RIB_SNAPSHOT_RANGE_SELECT = "SELECT prefix, path FROM {} WHERE snapshot >= ? " \
+    "AND snapshot <= ? ALLOW FILTERING;"
 
 ''' The BGPEvent table buckets by month as data arrives at a fast enough rate
 that some partitions will become larger than 100 Mb within that time.
@@ -61,13 +70,13 @@ BGPEVENT_TABLE_CREATE = ('CREATE TABLE IF NOT EXISTS {} ('
                       'prefix text, '
                       'year smallint, '
                       'month tinyint, '
-                      'time timeuuid, '
+                      'time timestamp, '
                       'seq int, '
                       'peer inet, '
                       'asn int, '
                       'path text, '
                       'type text, '
-                      'PRIMARY KEY((prefix, year, month), time)'
+                      'PRIMARY KEY((prefix, year, month), time, seq)'
                       ') WITH CLUSTERING ORDER BY (time DESC);')
 COLUMNS_BGPEVENTS = ['prefix', 'year', 'month', 'time', 'seq', 'peer', 'asn', 'path', 'type']
 BgpEventRow = recordclass('BgpEventRow', COLUMNS_BGPEVENTS)
@@ -113,6 +122,8 @@ class Bgp6Database:
         # Prepared statements for very common queries
         self.prep_stmt_insert_rib = self.session.prepare(RIB_INSERT)
         self.prep_stmt_insert_bgpevents = self.session.prepare(BGPEVENT_INSERT)
+        self.prep_stmt_select_snapshot_range = self.session.prepare(
+            RIB_SNAPSHOT_RANGE_SELECT)
         
         # A list of all ResponseFuture objects which have not been checked yet.
         self.futures = []

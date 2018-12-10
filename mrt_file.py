@@ -23,6 +23,7 @@ from mrtparse import *
 
 peer = None
 
+
 def parse_args():
     p = argparse.ArgumentParser(
         description='This script converts to bgpdump format.')
@@ -54,39 +55,72 @@ def parse_args():
         help='specify path to MRT format file')
     return p.parse_args()
 
+
+class SequenceGenerator:
+    ''' The resolution of timestamps in an updates file is one second.
+    The same prefix can experience multiple events in one second and these
+    must be placed in some sort of deterministic order. The
+    SequenceGenerator will handle assigning sequence numbers to events.
+    '''
+    
+    def __init__(self):
+        self.next_sequence_num = {}
+        self.ts = datetime.min
+        
+    def get_next_seq_number(self, prefix, ts):
+        ''' Returns an integer which is the sequence number which should be
+        assigned to this event.
+        
+        @param prefix: An IPv6 prefix as a string.
+        @param ts: The timestamp of the event. 
+        '''
+        # Never go backwards!
+        assert(ts >= self.ts)
+        
+        # Empty dictionary when second has rolled over
+        if ts > self.ts:
+            self.next_sequence_num.clear()
+        
+        if prefix in self.next_sequence_num:
+            result = self.next_sequence_num[prefix]
+            self.next_sequence_num[prefix] += 1
+        else:
+            result = 0
+            self.next_sequence_num[prefix] = 1
+            
+        return result
+
+            
+class Update:
+    
+    def __init__(self):
+        self.type = None
+        self.time = None
+        self.flag = None
+        self.peer_ip = None
+        self.peer_as = None
+        self.prefix = None
+        self.as_path = None
+        self.origin = None
+        self.next_hop = None
+        self.local_pref = None
+        self.med = None
+        self.comm = None
+        self.atomic_aggr = None
+        self.aggr = None
+        self.seq = None
+
+
 class BgpDump:
     __slots__ = [
         'verbose', 'output', 'ts_format', 'type', 'num', 'ts',
         'org_time', 'flag', 'peer_ip', 'peer_as', 'nlri', 'withdrawn',
         'as_path', 'origin', 'next_hop', 'local_pref', 'med', 'comm',
         'atomic_aggr', 'aggr', 'as4_path', 'as4_aggr', 'old_state', 'new_state',
+        'generator'
     ]
-    
-    class Update:
-        
-        def __init__(self):
-            self.type = None
-            self.time = None
-            self.flag = None
-            self.peer_ip = None
-            self.peer_as = None
-            self.prefix = None
-            self.as_path = None
-            self.origin = None
-            self.next_hop = None
-            self.local_pref = None
-            self.med = None
-            self.comm = None
-            self.atomic_aggr = None
-            self.aggr = None
 
     def __init__(self):
-        '''
-        self.verbose = args.verbose
-        self.output = args.output
-        self.ts_format = args.ts_format
-        self.pkt_num = args.pkt_num
-        '''
         self.type = ''
         self.num = 0
         self.ts = 0
@@ -108,69 +142,65 @@ class BgpDump:
         self.as4_aggr = ''
         self.old_state = 0
         self.new_state = 0
-
+        self.generator = SequenceGenerator()
+        
     def get_line(self, prefix, next_hop):
-        #if self.ts_format == 'dump':
+        line = Update()
+        line.type = self.flag
+        # if self.ts_format == 'dump':
         d = datetime.fromtimestamp(self.ts)
-        #else:
+        
+        line.seq = self.generator.get_next_seq_number(prefix, d)
+        # else:
         #    d = self.org_time
 
-        #if self.verbose:
+        # if self.verbose:
         #    d = str(d)
-        #else:
+        # else:
         #    d = datetime.utcfromtimestamp(d).\
         #        strftime('%m/%d/%y %H:%M:%S')
 
-        #if self.pkt_num == True:
+        # if self.pkt_num == True:
         #    d = '%d|%s' % (self.num, d)
 
         if self.flag == 'B' or self.flag == 'A':
-            #self.output.write('%s|%s|%s|%s|%s|%s|%s|%s' % (
+            # self.output.write('%s|%s|%s|%s|%s|%s|%s|%s' % (
             #    self.type, d, self.flag, self.peer_ip, self.peer_as, prefix,
             #    self.merge_as_path(), self.origin))
-            #if self.verbose == True:
+            # if self.verbose == True:
             #    self.output.write('|%s|%d|%d|%s|%s|%s|\n' % (
             #        next_hop, self.local_pref, self.med, self.comm,
             #        self.atomic_aggr, self.merge_aggr()))
-            #else:
+            # else:
             #    self.output.write('\n')
-            line = BgpDump.Update()
-            line.type=self.type
-            line.time=d
-            line.flag=self.flag
-            line.peer_ip=self.peer_ip
-            line.peer_as=int(self.peer_as)
-            line.prefix=prefix
-            line.as_path=self.merge_as_path()
-            line.origin=self.origin
-            line.next_hop=next_hop
-            line.local_pref=self.local_pref
-            line.med=self.med
-            line.comm=self.comm
-            line.atomic_aggr=self.atomic_aggr
-            line.aggr=self.merge_aggr()
+            line.time = d
+            line.peer_ip = self.peer_ip
+            line.peer_as = int(self.peer_as)
+            line.prefix = prefix
+            line.as_path = self.merge_as_path()
+            line.origin = self.origin
+            line.next_hop = next_hop
+            line.local_pref = self.local_pref
+            line.med = self.med
+            line.comm = self.comm
+            line.atomic_aggr = self.atomic_aggr
+            line.aggr = self.merge_aggr()
         elif self.flag == 'W':
-            #self.output.write('%s|%s|%s|%s|%s|%s\n' % (
+            # self.output.write('%s|%s|%s|%s|%s|%s\n' % (
             #    self.type, d, self.flag, self.peer_ip, self.peer_as,
             #    prefix))
-            line = BgpDump.Update()
-            line.type=self.type,
-            line.time=d
-            line.flag=self.flag
-            line.peer_ip=self.peer_ip
-            line.peer_as=int(self.peer_as)
-            line.prefix=prefix
+            line.time = d
+            line.peer_ip = self.peer_ip
+            line.peer_as = int(self.peer_as)
+            line.prefix = prefix
         elif self.flag == 'STATE':
-            #self.output.write('%s|%s|%s|%s|%s|%d|%d\n' % (
+            # self.output.write('%s|%s|%s|%s|%s|%d|%d\n' % (
             #    self.type, d, self.flag, self.peer_ip, self.peer_as,
             #    self.old_state, self.new_state))
-            line = BgpDump.State()
-            line.type=self.type
-            line.flag=self.flag
-            line.peer_ip=self.peer_ip
-            line.peer_as=int(self.peer_as)
-            line.old_state=self.old_state
-            line.new_state=self.new_state
+            line.peer_ip = self.peer_ip
+            line.peer_as = int(self.peer_as)
+            line.old_state = self.old_state
+            line.new_state = self.new_state
             
         return line
 
@@ -329,6 +359,7 @@ class BgpDump:
             return self.as4_aggr
         else:
             return self.aggr
+
         
 def main():
     args = parse_args()
@@ -346,6 +377,7 @@ def main():
         elif m.type == MRT_T['BGP4MP']:
             b.bgp4mp(m, count)
         count += 1
+
 
 if __name__ == '__main__':
     main()
