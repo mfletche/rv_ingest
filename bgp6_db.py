@@ -51,10 +51,12 @@ RIB_INSERT = ('INSERT INTO %s (%s) '
 operators.
 '''
 RIB_SNAPSHOT_INDEX = "CREATE CUSTOM INDEX rib_snapshot ON {} (snapshot) USING " \
-    "'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = { " \
-    "'mode': 'SPARSE'};".format(RIB_TABLE_NAME)
+    "'org.apache.cassandra.index.sasi.SASIIndex' WITH OPTIONS = {{ " \
+    "'mode': 'SPARSE'}};".format(RIB_TABLE_NAME)
 RIB_SNAPSHOT_RANGE_SELECT = "SELECT prefix, path FROM {} WHERE snapshot >= ? " \
-    "AND snapshot <= ? ALLOW FILTERING;"
+    "AND snapshot <= ? ALLOW FILTERING;".format(RIB_TABLE_NAME)
+RIB_SNAPSHOT_SELECT = "SELECT prefix, path FROM {} WHERE " \
+    "snapshot=toTimestamp((date)?) ALLOW FILTERING".format(RIB_TABLE_NAME)
 
 ''' The BGPEvent table buckets by month as data arrives at a fast enough rate
 that some partitions will become larger than 100 Mb within that time.
@@ -122,8 +124,7 @@ class Bgp6Database:
         # Prepared statements for very common queries
         self.prep_stmt_insert_rib = self.session.prepare(RIB_INSERT)
         self.prep_stmt_insert_bgpevents = self.session.prepare(BGPEVENT_INSERT)
-        self.prep_stmt_select_snapshot_range = self.session.prepare(
-            RIB_SNAPSHOT_RANGE_SELECT)
+        self.prep_stmt_select_snapshot = self.session.prepare(RIB_SNAPSHOT_SELECT)
         
         # A list of all ResponseFuture objects which have not been checked yet.
         self.futures = []

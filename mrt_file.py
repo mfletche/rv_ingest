@@ -148,7 +148,7 @@ class BgpDump:
         line = Update()
         line.type = self.flag
         # if self.ts_format == 'dump':
-        d = datetime.fromtimestamp(self.ts)
+        d = datetime.utcfromtimestamp(self.ts)
         
         line.seq = self.generator.get_next_seq_number(prefix, d)
         # else:
