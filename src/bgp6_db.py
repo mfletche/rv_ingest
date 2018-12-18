@@ -1,11 +1,13 @@
 from cassandra.cluster import Cluster, EXEC_PROFILE_DEFAULT
 import cassandra
 from cassandra.cluster import ExecutionProfile
+from cassandra.cqlengine import columns
+from cassandra.cqlengine.models import Model
 import time
 from recordclass import recordclass
 
 DEFAULT_NODE_IP = '130.217.250.114'
-DEFAULT_KEYSPACE = 'bgp6_test'
+DEFAULT_KEYSPACE = 'bgp6'
 DEFAULT_WHO = 'marianne'
 
 # Both meta tables (tables which store information about files imported) have
@@ -30,6 +32,18 @@ grow unbounded.
 The most recent entries (for each prefix) will be stored first.
 '''
 RIB_TABLE_NAME = 'rib'
+class RibEntry(Model):
+    __table_name__ = RIB_TABLE_NAME
+    __keyspace__ = DEFAULT_KEYSPACE
+    
+    prefix = columns.Text(primary_key=True)
+    year = columns.SmallInt(primary_key=True)
+    snapshot = columns.DateTime(primary_key=True, clustering_order="DESC")
+    peer = columns.Inet(primary_key=True, clustering_order="ASC")
+    asn = columns.Integer()
+    path = columns.Text(primary_key=True)
+    ts = columns.DateTime()
+
 RIB_TABLE_CREATE = ('CREATE TABLE IF NOT EXISTS {} ('
                     'prefix text, '
                     'year smallint, '
@@ -40,7 +54,7 @@ RIB_TABLE_CREATE = ('CREATE TABLE IF NOT EXISTS {} ('
                     'ts timestamp, '
                     'PRIMARY KEY ((prefix, year), snapshot, peer, path)'
                     ') WITH CLUSTERING ORDER BY (snapshot DESC, peer ASC);')
-COLUMNS_RIB = ['prefix', 'year', 'snapshot', 'peer', 'asn', 'path', 'ts']
+COLUMNS_RIB = ['prefix', 'year', 'snapshot', 'peer', 'path', 'asn', 'ts']
 RibRow = recordclass('RibRow', COLUMNS_RIB)
 
 RIB_INSERT = ('INSERT INTO %s (%s) '
@@ -68,6 +82,20 @@ ordering.
 The most recent entries (for each prefix) will be stored first.
 '''
 BGPEVENT_TABLE_NAME = 'bgp_event'
+class BgpEvent(Model):
+    __table_name__ = BGPEVENT_TABLE_NAME
+    __keyspace__= DEFAULT_KEYSPACE
+    
+    prefix = columns.Text(primary_key=True)
+    year = columns.SmallInt(primary_key=True)
+    month = columns.TinyInt(primary_key=True)
+    time = columns.DateTime(primary_key=True, clustering_order="DESC")
+    seq = columns.Integer(primary_key=True)
+    peer = columns.Inet()
+    asn = columns.Integer()
+    path = columns.Text()
+    type = columns.Text()
+
 BGPEVENT_TABLE_CREATE = ('CREATE TABLE IF NOT EXISTS {} ('
                       'prefix text, '
                       'year smallint, '
@@ -80,7 +108,7 @@ BGPEVENT_TABLE_CREATE = ('CREATE TABLE IF NOT EXISTS {} ('
                       'type text, '
                       'PRIMARY KEY((prefix, year, month), time, seq)'
                       ') WITH CLUSTERING ORDER BY (time DESC);')
-COLUMNS_BGPEVENTS = ['prefix', 'year', 'month', 'time', 'seq', 'peer', 'asn', 'path', 'type']
+COLUMNS_BGPEVENTS = ['prefix', 'year', 'month', 'time', 'seq', 'asn', 'path', 'peer', 'type']
 BgpEventRow = recordclass('BgpEventRow', COLUMNS_BGPEVENTS)
 
 BGPEVENT_INSERT = ('INSERT INTO %s (%s) '
@@ -88,6 +116,14 @@ BGPEVENT_INSERT = ('INSERT INTO %s (%s) '
                    ", ".join(list('?'*len(COLUMNS_BGPEVENTS)))))
 
 IMPORTED_RIB_TABLE_NAME = 'imported_rib'
+class ImportedRibFile(Model):
+    __table_name__ = IMPORTED_RIB_TABLE_NAME
+    __keyspace__ = DEFAULT_KEYSPACE
+    
+    file = columns.Text(primary_key=True)
+    time = columns.DateTime()
+    who = columns.Text()
+    
 IMPORTED_RIB_TABLE_CREATE = ('CREATE TABLE IF NOT EXISTS {} ('
                           'file text PRIMARY KEY, '
                           'time timestamp, '
@@ -96,6 +132,14 @@ COLUMNS_IMPORTED_RIB = ['file', 'time', 'who']
 ImportedRibRow = recordclass('ImportedRibRow', COLUMNS_IMPORTED_RIB)
 
 IMPORTED_UPDATES_TABLE_NAME = 'imported_updates'
+class ImportedUpdatesFile(Model):
+    __table_name__ = IMPORTED_UPDATES_TABLE_NAME
+    __keyspace__ = DEFAULT_KEYSPACE
+    
+    file = columns.Text(primary_key=True)
+    time = columns.DateTime()
+    who = columns.Text()
+
 IMPORTED_UPDATES_TABLE_CREATE = ('CREATE TABLE IF NOT EXISTS {} ('
                               'file text PRIMARY KEY, '
                               'time timestamp, '

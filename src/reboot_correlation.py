@@ -13,11 +13,69 @@ import pytricia
 import re
 import subprocess
 import sys
+from NetworkStateSnapshot import NetworkStateSnapshot
 
 MIN_PREFIX_LEN = 16
 MAX_PREFIX_LEN = 64
 
 IPV6_LEN_BITS = 128
+
+class Reboot:
+    def __init__(self, reboot_start, reboot_end):
+        if reboot_start > reboot_end:
+            raise ValueError('Reboot start time must be before reboot end time')
+        
+        self.reboot_start = reboot_start
+        self.reboot_end = reboot_end
+        
+    def _day_prior(self):
+        return self.reboot_start - datetime.timedelta(days=1)
+    
+    def _day_after(self):
+        return self.reboot_end + datetime.timedelta(days=1)
+                
+class Prefix:
+    def __init__(self, prefix, distance=None):
+        self.prefix = prefix
+        self.distance = distance
+        
+class ProbesToRebootsCorrelator:
+    def __init__(self, ip, reboots, ip_to_prefixes):
+        self.ip = ip
+        self.reboots = reboots
+        self.ip_to_prefixes = ip_to_prefixes
+        
+    def _get_probes(self, session):
+        stmt = 'SELECT probets, replyts, ipid FROM wart WHERE target=%s ' \
+                'AND year=%s AND month=%s AND probets>=%s AND probets <= %s'
+        
+        warts_data = []
+        
+        for reboot in self.reboots:
+            # Special case where two months have to be queried
+            if reboot._day_prior().month != reboot._day_after().month:
+                raise NotImplementedError
+            else:
+                warts_rows = session.execute(stmt, [self.ip, reboot.reboot_start.year,
+                                       reboot.reboot_start.month,
+                                       reboot._day_prior(),
+                                       reboot._day_after()])
+                for row in warts_rows:
+                    warts_data.append((row[0], row[1], row[1],))
+        return warts_data
+    
+    def _get_network_snapshot(self, reboot, session, prefix):
+        snapshot = NetworkStateSnapshot(reboot._day_prior(), 
+                                        session, prefix)
+        return snapshot
+        
+    def _get_bgp_events_after_reboot(self, reboot, prefix, session):
+        stmt = 'SELECT time, peer, type, path FROM bgp_event WHERE prefix=%s ' \
+                'AND year=%s AND month=%s AND time >= %s AND time <= %s ALLOW FILTERING'
+                
+        events_rows = session.execute(stmt, [prefix, reboot._day_prior().year,
+                               reboot._day_prior().month, reboot._day_prior(),
+                               reboot._day_after()])
 
 def get_value_from_csv_field(field):
     pattern = re.compile('^(.+?),')
@@ -95,7 +153,17 @@ class BgpPrefixMapping:
             self.lmp_tree.insert(prefix_str, prefix_str)
 
     def load_rib(self, bgp6_conn, rib_date):
-
+        ''' Loads the contents of one RIB file from the Cassandra bgp6
+        keyspace. The RIB file contains the currently advertised routes
+        at midnight.
+        
+        Routers advertise prefixes and declare the path through ASes to
+        reach that prefix. This function maps prefixes and the final AS
+        in the advertised path. If the path to a prefix ends at an AS:
+        
+        BgpPrefixMapping.prefix_asn_map[prefix][as] will exist and will
+        equal 1.
+        '''
         results = bgp6_conn.session.execute(bgp6_conn.prep_stmt_select_snapshot,
                                   (rib_date,))
         
